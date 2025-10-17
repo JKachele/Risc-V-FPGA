@@ -4,7 +4,7 @@
 module bench();
 reg CLK;
 wire RESET = 0; 
-wire [3:0] LEDS;
+wire [7:0] LEDS;
 reg  RXD = 1'b0;
 wire TXD;
 
@@ -16,7 +16,7 @@ SOC uut(
         .TXD(TXD)
 );
 
-reg[3:0] prev_LEDS = 0;
+reg[7:0] prev_LEDS = 0;
 initial begin
         CLK = 0;
         forever begin
