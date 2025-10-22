@@ -15,7 +15,7 @@ generate
                 // Slow clock down by 2^SLOW
                 // Simulator is about 16x slower than actual clock
                 `ifdef BENCH
-                        localparam slowBit=SLOW-4;
+                        localparam slowBit=SLOW-10;
                 `else
                         localparam slowBit=SLOW;
                 `endif

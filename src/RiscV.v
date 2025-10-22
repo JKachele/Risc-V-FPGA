@@ -232,7 +232,7 @@ end
 // `endif
 
 Clockworks #(
-        .SLOW(19)
+        .SLOW(25)
 ) CW(
         .CLK(CLK),
         .RESET(RESET),
