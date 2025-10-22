@@ -10,27 +10,37 @@ CFLAGS+=-I src/ -I src/Extern/ -I src/Modules/
 
 TB=src/TB_RiscV.v
 SRC=src/RiscV.v
-SRC_DIST=src/RiscVDist.v
 
 BIN=bin
-.PHONY: clean
-
-all: dirs build
+.PHONY: all build dirs clean 
 
 dirs:
 	mkdir -p ./$(BIN)
 
-sim: all
+sim: dirs
+	$(VC) -o $(BIN)/out $(CFLAGS) $(TB) $(SRC); \
 	vvp $(BIN)/out
+
+all: dirs
+	cd tcl; \
+	vivado -mode tcl -source build.tcl; \
+	vivado -mode tcl -source upload.tcl; \
+	cd ..
 
 build: dirs
-	$(VC) -o $(BIN)/out $(CFLAGS) $(TB) $(SRC)
+	cd tcl; \
+	vivado -mode tcl -source build.tcl; \
+	cd ..
 
-simDist: buildDist
-	vvp $(BIN)/out
+upload: dirs
+	cd tcl; \
+	vivado -mode tcl -source upload.tcl; \
+	cd ..
 
-buildDist: dirs
-	$(VC) -o $(BIN)/out $(CFLAGS) $(TB) $(SRC_DIST)
+store: dirs
+	cd tcl; \
+	vivado -mode tcl -source store.tcl; \
+	cd ..
 
 clean:
 	rm -rf ./bin
