@@ -10,9 +10,20 @@ OBJCOPY = riscv64-unknown-linux-gnu-objcopy
 ASFLAGS = -march=rv32i -mabi=ilp32
 LDFLAGS = -m elf32lriscv -nostdlib
 
+# Verilog
+VSRC = src/SOC.v
+TOP = SOC
+XDC = src/Extern/NexusA7.xdc
+
+# Simulation
+TB = verilator
+TBFLAGS  = -DBENCH -Wno-fatal -Isrc -Isrc/Extern --top-module $(TOP)
+TBFLAGS += --trace --build -cc -exe
+TBSRC = $(wildcard tb/*.cpp)
+
+# Firmware
 SRC = firmware/program.S
 OBJ = $(SRC:.S=.o)
-
 LDSCRIPT = firmware/ram.ld
 
 DIR=bin
@@ -40,6 +51,11 @@ firmware: $(OBJ)
 %.o: %.S
 	$(AS) $< -o $@ $(ASFLAGS)
 
+sim: out
+	rm -f obj_dir/*.cpp obj_dir/*.o obj_dir/*.a obj_dir/*.vcd obj_dir/V$(TOP)
+	$(TB) $(TBFLAGS) $(TBSRC) $(VSRC)
+	cd obj_dir && ./V$(TOP)
+
 lint: dirs out
 	cd tcl; \
 	vivado -mode tcl -source lint.tcl; \
@@ -62,4 +78,5 @@ store: dirs
 
 clean:
 	rm -rf ./bin
+	rm -rf ./obj_dir
 

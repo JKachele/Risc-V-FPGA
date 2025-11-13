@@ -89,11 +89,15 @@ SSegDisplay SSegDisp (
         .SSEG_AN(SSEG_AN)
 );
 
-LedDim ledDim (
-        .clk(CLK),
-        .leds_i(leds),
-        .leds_o(LEDS)
-);
+`ifdef BENCH
+        assign LEDS = leds;
+`else
+        LedDim ledDim (
+                .clk(CLK),
+                .leds_i(leds),
+                .leds_o(LEDS)
+        );
+`endif   
 
 corescore_emitter_uart #(
         .clk_freq_hz(100000000),
@@ -106,6 +110,15 @@ corescore_emitter_uart #(
         .o_ready(uartReady),
         .o_uart_tx(TXD)      			       
 );
+
+`ifdef BENCH
+        always @(posedge clk) begin
+                if(uartValid) begin
+                        $write("%c", memWData[7:0] );
+                        $fflush(32'h8000_0001);
+                end
+        end
+`endif   
 
 Clockworks CW(
         .CLK(CLK),

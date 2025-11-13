@@ -25,17 +25,17 @@ _start:
         li gp, IO_BASE
 
 mandelStart:
-        # Blink 5 times
-        li s0, 5
-blink:
-        li a0, 0x5555
-        sw a0, IO_LEDS(gp)
-        call wait
-        li a0, 0xAAAA
-        sw a0, IO_LEDS(gp)
-        call wait
-        addi s0, s0, -1
-        bnez s0, blink
+#         # Blink 5 times
+#         li s0, 5
+# blink:
+#         li a0, 0x5555
+#         sw a0, IO_LEDS(gp)
+#         # call wait
+#         li a0, 0xAAAA
+#         sw a0, IO_LEDS(gp)
+#         # call wait
+#         addi s0, s0, -1
+#         bnez s0, blink
         li a0, 0
         sw a0, IO_LEDS(gp)
 

@@ -35,7 +35,11 @@ generate
         end else begin
                 assign clk = CLK;
         end
-        assign resetn = !RESET;
+        `ifdef BENCH
+                assign resetn = RESET;
+        `else
+                assign resetn = !RESET;
+        `endif   
 
 endgenerate
 endmodule
