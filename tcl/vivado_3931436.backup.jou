@@ -1,0 +1,24 @@
+#-----------------------------------------------------------
+# Vivado v2025.1 (64-bit)
+# SW Build 6140274 on Wed May 21 22:58:25 MDT 2025
+# IP Build 6138677 on Thu May 22 03:10:11 MDT 2025
+# SharedData Build 6139179 on Tue May 20 17:58:58 MDT 2025
+# Start of session at: Wed Nov 12 23:17:04 2025
+# Process ID         : 3931436
+# Current directory  : /home/jkachele/Programing/FPGA/Risc-V-FPGA/tcl
+# Command line       : vivado -mode tcl -source upload.tcl
+# Log file           : /home/jkachele/Programing/FPGA/Risc-V-FPGA/tcl/vivado.log
+# Journal file       : /home/jkachele/Programing/FPGA/Risc-V-FPGA/tcl/vivado.jou
+# Running On         : hyperion
+# Platform           : Arch
+# Operating System   : Arch Linux
+# Processor Detail   : AMD Ryzen 9 7950X 16-Core Processor
+# CPU Frequency      : 5370.474 MHz
+# CPU Physical cores : 16
+# CPU Logical cores  : 32
+# Host memory        : 32670 MB
+# Swap memory        : 35203 MB
+# Total Virtual      : 67874 MB
+# Available Virtual  : 40802 MB
+#-----------------------------------------------------------
+source upload.tcl

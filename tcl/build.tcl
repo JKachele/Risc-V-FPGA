@@ -2,12 +2,11 @@
 set_part        xc7a100tcsg324-1
 
 # Read Design Files
-read_verilog    ../src/RiscV.v
-read_verilog    ../src/Extern/ClockworksArty.v
-read_xdc        ../src/Extern/ArtyA7.xdc
+read_verilog    ../src/SOC.v
+read_xdc        ../src/Extern/NexusA7.xdc
 
 # Synthesize the design and write synthesis report
-synth_design             -top Counter
+synth_design             -top SOC
 write_checkpoint         -force ./reports/post_synth
 report_timing_summary    -file ./reports/post_synth_timing_summary.rpt
 report_power             -file ./reports/post_synth_power.rpt
@@ -32,5 +31,5 @@ report_power             -file ./reports/post_route_power.rpt
 report_drc               -file ./reports/post_imp_drc.rpt
 
 # Write the bitstream file
-write_bitstream -force -bin_file ../bin/Counter.bit
+write_bitstream -force -bin_file ../bin/SOC.bit
 exit

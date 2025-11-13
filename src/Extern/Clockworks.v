@@ -1,4 +1,10 @@
-`include "IcestickPLL.v"
+/*************************************************
+ *File----------Clockworks.v
+ *Project-------Risc-V-FPGA
+ *Author--------Justin Kachele
+ *Created-------Sunday Nov 02, 2025 13:25:08 EST
+ *License-------GNU GPL-3.0
+ ************************************************/
 
 module Clockworks 
 (
@@ -17,7 +23,7 @@ generate
                 // Slow clock down by 2^SLOW
                 // Simulator is about 16x slower than actual clock
                 `ifdef BENCH
-                        localparam slowBit=SLOW-4;
+                        localparam slowBit=SLOW-10;
                 `else
                         localparam slowBit=SLOW;
                 `endif
@@ -26,17 +32,8 @@ generate
                         slow_CLK <= slow_CLK + 1;
                 end
                 assign clk = slow_CLK[slowBit];
-        end else if(FREQ != 0) begin
-                `ifdef CPU_FREQ
-                        IcestickPLL #(
-                                .freq(`CPU_FREQ)
-                        ) pll(
-                                .pclk(CLK),
-                                .clk(clk)
-                        );
-                `else
-                        clk=CLK;
-                `endif
+        end else begin
+                assign clk = CLK;
         end
         assign resetn = !RESET;
 

@@ -3,31 +3,49 @@
 # @file        : Makefile
 # @created     : Friday Oct 17, 2025 14:39:28 UTC
 ######################################################################
+CC = riscv64-unknown-linux-gnu-gcc
+AS = riscv64-unknown-linux-gnu-as
+LD = riscv64-unknown-linux-gnu-ld
+OBJCOPY = riscv64-unknown-linux-gnu-objcopy
+ASFLAGS = -march=rv32i -mabi=ilp32
+LDFLAGS = -m elf32lriscv -nostdlib
 
-VC=iverilog
-CFLAGS=-DBENCH -DSIM -DPASSTHROUGH_PLL -DBOARD_FREQ=10 -DCPU_FREQ=10
-CFLAGS+=-I src/ -I src/Extern/ -I src/Modules/
+SRC = firmware/program.S
+OBJ = $(SRC:.S=.o)
 
-TB=src/TB_RiscV.v
-SRC=src/RiscV.v
+LDSCRIPT = firmware/ram.ld
 
-BIN=bin
-.PHONY: all build dirs clean 
+DIR=bin
+.PHONY: all lint build dirs clean 
 
-dirs:
-	mkdir -p ./$(BIN)
-
-sim: dirs
-	$(VC) -o $(BIN)/out $(CFLAGS) $(TB) $(SRC); \
-	vvp $(BIN)/out
-
-all: dirs
+all: dirs out
 	cd tcl; \
 	vivado -mode tcl -source build.tcl; \
 	vivado -mode tcl -source upload.tcl; \
 	cd ..
 
-build: dirs
+dirs:
+	mkdir -p ./$(DIR)
+
+out: firmware dirs
+	$(OBJCOPY) firmware.elf -O binary firmware.bin
+	hexdump -ve '"%08x\n"' firmware.bin > $(DIR)/$@.hex
+	rm firmware.elf
+	rm firmware.bin
+
+firmware: $(OBJ)
+	$(LD) -T $(LDSCRIPT) $(OBJ) -o $@.elf $(LDFLAGS)
+	rm $(OBJ)
+
+%.o: %.S
+	$(AS) $< -o $@ $(ASFLAGS)
+
+lint: dirs out
+	cd tcl; \
+	vivado -mode tcl -source lint.tcl; \
+	cd ..
+
+build: dirs out
 	cd tcl; \
 	vivado -mode tcl -source build.tcl; \
 	cd ..

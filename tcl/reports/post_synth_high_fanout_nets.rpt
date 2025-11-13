@@ -1,0 +1,25 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2025 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2025.1 (lin64) Build 6140274 Wed May 21 22:58:25 MDT 2025
+| Date         : Wed Nov 12 23:24:15 2025
+| Host         : hyperion running 64-bit Arch Linux
+| Command      : report_high_fanout_nets -fanout_greater_than 200 -max_nets 50 -file ./reports/post_synth_high_fanout_nets.rpt
+| Design       : SOC
+| Device       : xc7a100t
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+High Fan-out Nets Information
+
+1. Summary
+----------
+
++------------------+--------+-------------+
+| Net Name         | Fanout | Driver Type |
++------------------+--------+-------------+
+| CPU/memRData[15] |    261 | LUT5        |
+| CPU/memRData[16] |    259 | LUT5        |
+| CPU/memRData[20] |    259 | LUT5        |
+| CPU/memRData[21] |    259 | LUT5        |
++------------------+--------+-------------+
+
+
