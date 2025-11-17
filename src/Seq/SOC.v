@@ -5,10 +5,11 @@
  *Created-------Saturday Nov 01, 2025 08:24:54 EDT
  *License-------GNU GPL-3.0
  ************************************************/
-`include "Extern/Clockworks.v"
-`include "Extern/SSegDisplay.v"
-`include "Extern/LedDim.v"
-`include "Extern/emitterUart.v"
+`include "../Extern/Clockworks.v"
+`include "../Extern/SSegDisplay.v"
+`include "../Extern/LedDim.v"
+`include "../Extern/txuart.v"
+`include "../Extern/rxuart.v"
 `include "Memory.v"
 `include "Processor.v"
 
@@ -68,16 +69,22 @@ reg [31:0] sseg;
 always @(posedge clk) begin
         if (isIO & memWstrb) begin
                 if (memWordAddr[IO_LEDS_bit])
-                        leds <= memWData[15:0];
+                        leds[15:0] <= memWData[15:0];
                 else if (memWordAddr[IO_SSEG_bit])
                         sseg <= memWData;
         end
 end
 
 wire uartValid = isIO & memWstrb & memWordAddr[IO_UART_DAT_bit];
-wire uartReady;
+wire uartBusy;
 
-wire [31:0] IORData = memWordAddr[IO_UART_CTRL_bit] ? {22'b0, !uartReady, 9'b0}
+wire uartReady;
+wire [7:0] uartData;
+always @(posedge uartReady) begin
+        leds[7:0] <= uartData;
+end
+
+wire [31:0] IORData = memWordAddr[IO_UART_CTRL_bit] ? {22'b0, uartBusy, 9'b0}
                                                     : 32'b0;
 assign memRData = isRam ? ramRData : IORData;
 
@@ -99,26 +106,29 @@ SSegDisplay SSegDisp (
         );
 `endif   
 
-corescore_emitter_uart #(
-        .clk_freq_hz(100000000),
-        .baud_rate(115200)			    
-) UART(
+// 115200 baud, 8-bit, no parity, 1 stop bit
+localparam UART_SETUP = {1'b0, 2'b00, 1'b0, 3'b000, 24'h000364};
+
+txuart TXUART (
         .i_clk(clk),
-        .i_rst(reset),
+        .i_reset(reset),
+        .i_setup(UART_SETUP),
+        .i_break(0),
+        .i_wr(uartValid),
         .i_data(memWData[7:0]),
-        .i_valid(uartValid),
-        .o_ready(uartReady),
-        .o_uart_tx(TXD)      			       
+        .i_cts_n(0),
+        .o_uart_tx(TXD),
+        .o_busy(uartBusy)
 );
 
-`ifdef BENCH
-        always @(posedge clk) begin
-                if(uartValid) begin
-                        $write("%c", memWData[7:0] );
-                        $fflush(32'h8000_0001);
-                end
-        end
-`endif   
+rxuart RXUART (
+        .i_clk(clk),
+        .i_reset(reset),
+        .i_setup(UART_SETUP),
+        .i_uart_rx(RXD),
+        .o_wr(uartReady),
+        .o_data(uartData)
+);
 
 Clockworks CW(
         .CLK(CLK),

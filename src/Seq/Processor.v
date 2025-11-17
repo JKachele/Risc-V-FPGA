@@ -5,7 +5,6 @@
 *Created-------Friday Oct 17, 2025 15:26:01 UTC
 *License-------GNU GPL-3.0
 ************************************************/
-`include "Extern/Clockworks.v"
 
 module Processor(
         input  clk,

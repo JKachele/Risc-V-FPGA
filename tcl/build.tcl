@@ -2,7 +2,7 @@
 set_part        xc7a100tcsg324-1
 
 # Read Design Files
-read_verilog    ../src/SOC.v
+read_verilog    ../src/Seq/SOC.v
 read_xdc        ../src/Extern/NexusA7.xdc
 
 # Synthesize the design and write synthesis report

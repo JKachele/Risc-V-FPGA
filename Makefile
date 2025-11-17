@@ -11,18 +11,19 @@ ASFLAGS = -march=rv32i -mabi=ilp32
 LDFLAGS = -m elf32lriscv -nostdlib
 
 # Verilog
-VSRC = src/SOC.v
+VSRC = src/Seq/SOC.v
 TOP = SOC
 XDC = src/Extern/NexusA7.xdc
 
 # Simulation
 TB = verilator
-TBFLAGS  = -DBENCH -Wno-fatal -Isrc -Isrc/Extern --top-module $(TOP)
-TBFLAGS += --trace --build -cc -exe
+TBFLAGS  = -DBENCH -Wno-fatal -Isrc -Isrc/Seq -Isrc/pipeline -Isrc/Extern
+TBFLAGS += --top-module $(TOP) --trace --build -cc -exe
 TBSRC = $(wildcard tb/*.cpp)
 
 # Firmware
-SRC = firmware/program.S
+# SRC = firmware/program.S
+SRC = firmware/test.S
 OBJ = $(SRC:.S=.o)
 LDSCRIPT = firmware/ram.ld
 
