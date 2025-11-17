@@ -23,7 +23,7 @@ blink:
         # call wait
         addi s0, s0, -1
         bnez s0, blink
-        li a0, 0
+        li a0, 0xffff
         sw a0, IO_LEDS(gp)
 
         ebreak

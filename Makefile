@@ -11,13 +11,13 @@ ASFLAGS = -march=rv32i -mabi=ilp32
 LDFLAGS = -m elf32lriscv -nostdlib
 
 # Verilog
-VSRC = src/Seq/SOC.v
+VSRC = src/pipeline/SOC.v
 TOP = SOC
 XDC = src/Extern/NexusA7.xdc
 
 # Simulation
 TB = verilator
-TBFLAGS  = -DBENCH -Wno-fatal -Isrc -Isrc/Seq -Isrc/pipeline -Isrc/Extern
+TBFLAGS  = -DBENCH -Wno-fatal -Isrc -Isrc/pipeline -Isrc/Extern
 TBFLAGS += --top-module $(TOP) --trace --build -cc -exe
 TBSRC = $(wildcard tb/*.cpp)
 
@@ -30,7 +30,7 @@ LDSCRIPT = firmware/ram.ld
 DIR=bin
 .PHONY: all lint build dirs clean 
 
-all: dirs out
+all: dirs program
 	cd tcl; \
 	vivado -mode tcl -source build.tcl; \
 	vivado -mode tcl -source upload.tcl; \
@@ -39,10 +39,10 @@ all: dirs out
 dirs:
 	mkdir -p ./$(DIR)
 
-out: firmware dirs
+program: firmware dirs
 	$(OBJCOPY) firmware.elf -O binary firmware.bin
 	hexdump -ve '"%08x\n"' firmware.bin > $(DIR)/$@.hex
-	rm firmware.elf
+	# rm firmware.elf
 	rm firmware.bin
 
 firmware: $(OBJ)
@@ -52,7 +52,7 @@ firmware: $(OBJ)
 %.o: %.S
 	$(AS) $< -o $@ $(ASFLAGS)
 
-sim: out
+sim: program
 	rm -f obj_dir/*.cpp obj_dir/*.o obj_dir/*.a obj_dir/*.vcd obj_dir/V$(TOP)
 	$(TB) $(TBFLAGS) $(TBSRC) $(VSRC)
 	cd obj_dir && ./V$(TOP)
