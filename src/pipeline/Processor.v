@@ -59,6 +59,9 @@ wire [31:0] Jimm={{12{instr[31]}}, instr[19:12],instr[20],instr[30:21],1'b0};
 wire isEBREAK = isSYS & (funct3 == 3'b000) & (Iimm == 12'h001);
 reg HALT = 0;
 
+wire isCSR = isSYS & ((funct3 != 3'b000) & (funct3 != 3'b100));
+wire [11:0] csrID = instr[31:20];
+
 // Address for Load/Store
 wire [31:0] loadStoreAddr = rs1 + (isStore ? Simm : Iimm);
 
@@ -130,17 +133,15 @@ end
 /************************************************
  -----------------------CSR----------------------
  ************************************************/
-wire isCSR = isSYS & ((funct3 != 3'b000) & (funct3 != 3'b100));
-
 reg [31:0] csrData;
 always @(*) begin
-        if (Iimm == CYCLE_ID)
+        if (csrID == CYCLE_ID)
                 csrData = cycle[31:0];
-        else if (Iimm == CYCLEH_ID)
+        else if (csrID == CYCLEH_ID)
                 csrData = cycle[63:32];
-        else if (Iimm == INSTRET_ID)
+        else if (csrID == INSTRET_ID)
                 csrData = instret[31:0];
-        else // if (Iimm == INSTRETH_ID)
+        else // if (csrID == INSTRETH_ID)
                 csrData = instret[63:32];
 end
 

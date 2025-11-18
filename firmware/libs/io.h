@@ -1,0 +1,22 @@
+/*************************************************
+ *File----------io.h
+ *Project-------Risc-V-FPGA
+ *Author--------Justin Kachele
+ *Created-------Tuesday Nov 18, 2025 22:03:28 UTC
+ *License-------GNU GPL-3.0
+ ************************************************/
+#ifndef IO_H
+#define IO_H
+
+#include <stdint.h>
+
+#define IO_BASE       0x400000
+#define IO_LEDS       4
+#define IO_UART_DAT   8
+#define IO_UART_CNTL  16
+
+#define IO_IN(port)       *(volatile uint32_t*)(IO_BASE + port)
+#define IO_OUT(port,val)  *(volatile uint32_t*)(IO_BASE + port)=(val)
+
+#endif
+
