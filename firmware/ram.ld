@@ -6,7 +6,7 @@ MEMORY {
 SECTIONS {
         .text : {
                 . = ALIGN(4);
-                firmware/startPipeline.o (.text)
+                *startPipeline*.o (.text)
                 *(.text*)
         } > PROGROM
 

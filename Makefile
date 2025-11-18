@@ -26,71 +26,71 @@ TBFLAGS  = -DBENCH -Wno-fatal -Isrc -Isrc/pipeline -Isrc/Extern
 TBFLAGS += --top-module $(TOP) --trace --build -cc -exe
 TBSRC = $(wildcard tb/*.cpp)
 
+BIN_DIR := bin
+BUILD_DIR := build
+
 # Firmware
-SRC  = $(wildcard firmware/*.S) $(wildcard firmware/*.c) 
+SRC := $(wildcard firmware/*.S) $(wildcard firmware/*.c) 
 SRC += $(wildcard firmware/*/*.S) $(wildcard firmware/*/*.c) 
-OBJ  = $(SRC:.c=.o)
-OBJ := $(OBJ:.S=.o)
+OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
 LDSCRIPT = firmware/ram.ld
 
-DIR=bin
-.PHONY: all firmware sim lint build dirs clean 
+ROM := $(BIN_DIR)/ROM.hex
+RAM := $(BIN_DIR)/RAM.hex
+FIRMWARE := $(BIN_DIR)/firmware.elf
 
-all: dirs program
-	cd tcl; \
-	vivado -mode tcl -source build.tcl; \
-	vivado -mode tcl -source upload.tcl; \
-	cd ..
+.PHONY: all hex sim lint build dirs clean 
 
-dirs:
-	mkdir -p ./$(DIR)
+hex: $(ROM) $(RAM)
 
-program: firmware dirs
-	$(OBJCOPY) $(DIR)/firmware.elf -R .data -O binary $(DIR)/ROM.bin
-	$(OBJCOPY) $(DIR)/firmware.elf -R .text -O binary $(DIR)/RAM.bin
-	hexdump -ve '"%08x\n"' $(DIR)/ROM.bin > $(DIR)/ROM.hex
-	hexdump -ve '"%08x\n"' $(DIR)/RAM.bin > $(DIR)/RAM.hex
-	# rm $(DIR)/firmware.elf
-	rm $(DIR)/ROM.bin
-	rm $(DIR)/RAM.bin
+$(ROM): $(FIRMWARE)
+	$(OBJCOPY) $< -R .data -O binary $@.bin
+	hexdump -ve '"%08x\n"' $@.bin > $@
+	rm $@.bin
 
-firmware: $(OBJ)
-	$(LD) -T $(LDSCRIPT) $(OBJ) -o $(DIR)/$@.elf $(LDFLAGS)
-	rm $(OBJ)
+$(RAM): $(FIRMWARE)
+	$(OBJCOPY) $< -R .text -O binary $@.bin
+	hexdump -ve '"%08x\n"' $@.bin > $@
+	rm $@.bin
 
-%.o: %.S
-	$(CC) -o $@ -c $^ $(CFLAGS)
+$(FIRMWARE): $(OBJ)
+	@mkdir -p $(dir $@)
+	$(LD) -T $(LDSCRIPT) $(OBJ) -o $@ $(LDFLAGS)
 
-%.o: %.c
-	$(CC) -o $@ -c $^ $(CFLAGS)
+$(BUILD_DIR)/%.S.o: %.S
+	@mkdir -p $(dir $@)
+	$(CC) -o $@ -c $< $(CFLAGS)
 
-sim: program
-	rm -f obj_dir/*.cpp obj_dir/*.o obj_dir/*.a obj_dir/*.vcd obj_dir/V$(TOP)
+$(BUILD_DIR)/%.c.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) -o $@ -c $< $(CFLAGS)
+
+sim: $(ROM) $(RAM)
+	cd obj_dir; rm -f *.cpp *.o *.a *.vcd V$(TOP)
 	$(TB) $(TBFLAGS) $(TBSRC) $(VSRC)
 	cd obj_dir && ./V$(TOP)
 
-lint: dirs out
-	cd tcl; \
-	vivado -mode tcl -source lint.tcl; \
-	cd ..
+all: $(BIN_DIR) $(ROM) $(RAM)
+	cd tcl; vivado -mode tcl -source build.tcl
+	cd tcl; vivado -mode tcl -source upload.tcl
 
-build: dirs out
-	cd tcl; \
-	vivado -mode tcl -source build.tcl; \
-	cd ..
+$(BIN_DIR):
+	mkdir -p $@
 
-upload: dirs
-	cd tcl; \
-	vivado -mode tcl -source upload.tcl; \
-	cd ..
+lint: $(BIN_DIR) $(ROM) $(RAM) 
+	cd tcl; vivado -mode tcl -source lint.tcl
 
-store: dirs
-	cd tcl; \
-	vivado -mode tcl -source store.tcl; \
-	cd ..
+build: $(BIN_DIR) $(ROM) $(RAM) 
+	cd tcl; vivado -mode tcl -source build.tcl
+
+upload:
+	cd tcl; vivado -mode tcl -source upload.tcl
+
+store:
+	cd tcl; vivado -mode tcl -source store.tcl
 
 clean:
-	rm -rf ./bin
 	rm -rf ./obj_dir
-	rm $(OBJ)
+	rm -rf $(BIN_DIR)
+	rm -rf $(BUILD_DIR)
 
