@@ -3,12 +3,17 @@
 # @file        : Makefile
 # @created     : Friday Oct 17, 2025 14:39:28 UTC
 ######################################################################
-CC = riscv64-unknown-linux-gnu-gcc
-AS = riscv64-unknown-linux-gnu-as
-LD = riscv64-unknown-linux-gnu-ld
-OBJCOPY = riscv64-unknown-linux-gnu-objcopy
-ASFLAGS = -march=rv32i -mabi=ilp32
-LDFLAGS = -m elf32lriscv -nostdlib
+RVTOOL_PREFIX = riscv64-unknown-elf
+RVTOOL_DIR = /opt/riscv
+RV_LIB_DIR = $(RVTOOL_DIR)/$(RVTOOL_PREFIX)/lib/rv32i/ilp32
+GCC_LIB_DIR = /opt/riscv/lib/gcc/riscv64-unknown-elf/10.1.0/rv32i/ilp32
+
+CC = $(RVTOOL_PREFIX)-gcc
+LD = $(RVTOOL_PREFIX)-ld
+OBJCOPY = $(RVTOOL_PREFIX)-objcopy
+CFLAGS = -march=rv32i -mabi=ilp32 -nostdlib -Wno-builtin-declaration-mismatch
+LDFLAGS  = -m elf32lriscv -nostdlib --no-relax
+LDFLAGS += -L$(RV_LIB_DIR) -lm $(GCC_LIB_DIR)/libgcc.a
 
 # Verilog
 VSRC = src/pipeline/SOC.v
@@ -22,13 +27,14 @@ TBFLAGS += --top-module $(TOP) --trace --build -cc -exe
 TBSRC = $(wildcard tb/*.cpp)
 
 # Firmware
-# SRC = firmware/program.S
-SRC = firmware/test.S
-OBJ = $(SRC:.S=.o)
+SRC  = $(wildcard firmware/*.S) $(wildcard firmware/*.c) 
+SRC += $(wildcard firmware/*/*.S) $(wildcard firmware/*/*.c) 
+OBJ  = $(SRC:.c=.o)
+OBJ := $(OBJ:.S=.o)
 LDSCRIPT = firmware/ram.ld
 
 DIR=bin
-.PHONY: all lint build dirs clean 
+.PHONY: all firmware sim lint build dirs clean 
 
 all: dirs program
 	cd tcl; \
@@ -40,17 +46,23 @@ dirs:
 	mkdir -p ./$(DIR)
 
 program: firmware dirs
-	$(OBJCOPY) firmware.elf -O binary firmware.bin
-	hexdump -ve '"%08x\n"' firmware.bin > $(DIR)/$@.hex
-	# rm firmware.elf
-	rm firmware.bin
+	$(OBJCOPY) $(DIR)/firmware.elf -R .data -O binary $(DIR)/ROM.bin
+	$(OBJCOPY) $(DIR)/firmware.elf -R .text -O binary $(DIR)/RAM.bin
+	hexdump -ve '"%08x\n"' $(DIR)/ROM.bin > $(DIR)/ROM.hex
+	hexdump -ve '"%08x\n"' $(DIR)/RAM.bin > $(DIR)/RAM.hex
+	# rm $(DIR)/firmware.elf
+	rm $(DIR)/ROM.bin
+	rm $(DIR)/RAM.bin
 
 firmware: $(OBJ)
-	$(LD) -T $(LDSCRIPT) $(OBJ) -o $@.elf $(LDFLAGS)
+	$(LD) -T $(LDSCRIPT) $(OBJ) -o $(DIR)/$@.elf $(LDFLAGS)
 	rm $(OBJ)
 
 %.o: %.S
-	$(AS) $< -o $@ $(ASFLAGS)
+	$(CC) -o $@ -c $^ $(CFLAGS)
+
+%.o: %.c
+	$(CC) -o $@ -c $^ $(CFLAGS)
 
 sim: program
 	rm -f obj_dir/*.cpp obj_dir/*.o obj_dir/*.a obj_dir/*.vcd obj_dir/V$(TOP)
@@ -80,4 +92,5 @@ store: dirs
 clean:
 	rm -rf ./bin
 	rm -rf ./obj_dir
+	rm $(OBJ)
 

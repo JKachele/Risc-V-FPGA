@@ -26,8 +26,8 @@ wire clk;
 wire reset;
 
 // Memory
-wire [31:0] progRomAddr;
-wire [31:0] progRomData;
+// wire [31:0] progRomAddr;
+// wire [31:0] progRomData;
 wire [31:0] memAddr;
 wire [31:0] memRData;
 wire        memRstrb;
@@ -37,8 +37,8 @@ wire [3:0]  memWMask;
 Processor CPU(
         .clk(clk),
         .reset(reset),
-        .progRomAddr(progRomAddr),
-        .progRomData(progRomData),
+        // .progRomAddr(progRomAddr),
+        // .progRomData(progRomData),
         .ramAddr(memAddr),
         .ramRData(memRData),
         .ramRStrb(memRstrb),
@@ -54,8 +54,8 @@ wire memWstrb = |memWMask;
 
 Memory RAM(
         .clk(clk),
-        .progRomAddr(progRomAddr),
-        .progRomData(progRomData),
+        // .progRomAddr(progRomAddr),
+        // .progRomData(progRomData),
         .memAddr(memAddr),
         .memRData(ramRData),
         .memRstrb(isRam & memRstrb),

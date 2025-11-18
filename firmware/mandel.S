@@ -1,6 +1,3 @@
-.equ STACK_BASE, 0x1800
-
-.equ IO_BASE, 0x400000
 .equ IO_LEDS, 0x04
 .equ IO_UART_DAT, 0x08
 .equ IO_UART_CNTL, 0x10
@@ -18,27 +15,26 @@
 .equ DY, (YMAX-YMIN)/80
 .equ NORM_MAX,(4 << MANDEL_SHIFT)
 
-.global _start
+.global mandelPrint
 .text
-_start:
-        li sp, STACK_BASE
-        li gp, IO_BASE
+mandelPrint:
+        # Store return address and saved registers on the stack
+        addi sp, sp, -52
+        sw ra ,  0(sp)
+        sw s0 ,  4(sp)
+        sw s1 ,  8(sp)
+        sw s2 , 12(sp)
+        sw s3 , 16(sp)
+        sw s4 , 20(sp)
+        sw s5 , 24(sp)
+        sw s6 , 28(sp)
+        sw s7 , 32(sp)
+        sw s8 , 36(sp)
+        sw s9 , 40(sp)
+        sw s10, 44(sp)
+        sw s11, 48(sp)
 
 mandelStart:
-#         # Blink 5 times
-#         li s0, 5
-# blink:
-#         li a0, 0x5555
-#         sw a0, IO_LEDS(gp)
-#         # call wait
-#         li a0, 0xAAAA
-#         sw a0, IO_LEDS(gp)
-#         # call wait
-#         addi s0, s0, -1
-#         bnez s0, blink
-        li a0, 0
-        sw a0, IO_LEDS(gp)
-
         li s1, 0
         li s3, XMIN
         li s11, 80
@@ -56,15 +52,15 @@ loopX:
 loopZ:
         mv a0, s4       # Zrr <= (Zr*Zr) >> MANDEL_SHIFT
         mv a1, s4
-        call mulsi3
+        call __mulsi3
         srli s6, a0, MANDEL_SHIFT
 	mv a0, s4       # Zri <- (Zr*Zi) >> (MANDEL_SHIFT-1)
 	mv a1, s5
-	call mulsi3
+	call __mulsi3
 	srai s7, a0, MANDEL_SHIFT-1
 	mv a0, s5       # Zii <- (Zi*Zi) >> (MANDEL_SHIFT)
 	mv a1, s5
-	call mulsi3
+	call __mulsi3
 	srli s8, a0, MANDEL_SHIFT
 	sub s4, s6, s8  # Zr <- Zrr - Zii + Cr  
 	add s4, s4, s2
@@ -96,51 +92,43 @@ exitZ:
         add s3, s3, DY
         bne s1, s11, loopY
 
-        li t0, 0xffff
-        sw t0, IO_LEDS(gp)
-
         call putchar
         li a0, 13
         call putchar
         li a0, 10
         call putchar
 
-        ebreak
+        # load return address and saved registers from the stack
+        lw ra ,  0(sp)
+        lw s0 ,  4(sp)
+        lw s1 ,  8(sp)
+        lw s2 , 12(sp)
+        lw s3 , 16(sp)
+        lw s4 , 20(sp)
+        lw s5 , 24(sp)
+        lw s6 , 28(sp)
+        lw s7 , 32(sp)
+        lw s8 , 36(sp)
+        lw s9 , 40(sp)
+        lw s10, 44(sp)
+        lw s11, 48(sp)
+        addi sp, sp, 52
+        ret
 
 
 # Multiply: a0 = a0 * a1
-mulsi3:
-        mv a2, a0
-        li a0, 0
-mulsi3_L0:
-        andi a3, a1, 1
-        beqz a3, mulsi3_L1
-        add a0, a0, a2
-mulsi3_L1:
-        srli a1, a1, 1
-        slli a2, a2, 1
-        bnez a1, mulsi3_L0
-        ret
-
-
-putchar:
-        sw a0, IO_UART_DAT(gp)
-        li t0, 1
-        slli t0, t0, 9
-putLoop:
-        lw t1, IO_UART_CNTL(gp)
-        and t1, t1, t0
-        bnez t1, putLoop
-        ret
-
-
-wait:
-        li t0, 1
-        slli t0, t0, 21
-wait_L0:
-        addi t0, t0, -1
-        bnez t0, wait_L0
-        ret
+# mulsi3:
+#         mv a2, a0
+#         li a0, 0
+# mulsi3_L0:
+#         andi a3, a1, 1
+#         beqz a3, mulsi3_L1
+#         add a0, a0, a2
+# mulsi3_L1:
+#         srli a1, a1, 1
+#         slli a2, a2, 1
+#         bnez a1, mulsi3_L0
+#         ret
 
 
 .section .data

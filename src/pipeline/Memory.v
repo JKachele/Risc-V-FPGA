@@ -8,8 +8,8 @@
 
 module Memory (
         input             clk,
-        input      [31:0] progRomAddr,
-        output reg [31:0] progRomData,
+        // input      [31:0] progRomAddr,
+        // output reg [31:0] progRomData,
         input      [31:0] memAddr,  // Address to be read
         output reg [31:0] memRData, // Data read from memory
         input             memRstrb, // Goes high when processor wants to read
@@ -17,18 +17,18 @@ module Memory (
         input      [3:0]  memWMask  // Mask for writing to memory
 );
 
-reg [31:0] PROGROM [0:16383];
+// reg [31:0] PROGROM [0:16383];
 reg [31:0] DATARAM [0:16383];
 
 initial begin
-        $readmemh("../bin/program.hex",PROGROM);
-        // $readmemh("../bin/data.hex",DATARAM);
-        progRomData <= PROGROM[0];
+        // $readmemh("../bin/program.hex",PROGROM);
+        $readmemh("../bin/RAM.hex",DATARAM);
+        // progRomData <= PROGROM[0];
 end
 
 wire [29:0] wordAddr = memAddr[31:2];
 always @(posedge clk) begin
-        progRomData <= PROGROM[progRomAddr[31:2]];
+        // progRomData <= PROGROM[progRomAddr[31:2]];
         if(memRstrb) begin
                 memRData <= DATARAM[memAddr[31:2]];
         end

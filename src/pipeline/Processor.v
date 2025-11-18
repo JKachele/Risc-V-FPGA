@@ -8,14 +8,20 @@
 module Processor(
         input  clk,
         input  reset,
-        output [31:0] progRomAddr,
-        input  [31:0] progRomData,
+        // output [31:0] progRomAddr,
+        // input  [31:0] progRomData,
         output [31:0] ramAddr,
         input  [31:0] ramRData,
         output ramRStrb,
         output [31:0] memWData,
         output [3:0]  memWMask
 );
+
+reg [31:0] PROGROM [0:16383];
+
+initial begin
+        $readmemh("../bin/ROM.hex",PROGROM);
+end
 
 reg [31:0] PC;       // program counter
 reg [31:0] instr;    // current instruction
@@ -50,18 +56,36 @@ wire [31:0] Bimm={{20{instr[31]}}, instr[7],instr[30:25],instr[11:8],1'b0};
 wire [31:0] Uimm={instr[31],       instr[30:12], {12{1'b0}}};
 wire [31:0] Jimm={{12{instr[31]}}, instr[19:12],instr[20],instr[30:21],1'b0};
 
+wire isEBREAK = isSYS & (funct3 == 3'b000) & (Iimm == 12'h001);
+reg HALT = 0;
+
 // Address for Load/Store
 wire [31:0] loadStoreAddr = rs1 + (isStore ? Simm : Iimm);
 
-// Register File
+/************************************************
+ -----------------REGISTER FILE------------------
+ ************************************************/
 reg [31:0] RegisterFile [0:31];
 reg [31:0] rs1;
 reg [31:0] rs2;
 wire [31:0] writeBackData;
 wire writeBackEn;
 
+// Control and Status Registers
+reg [63:0] cycle;       // 0xC00 - 0xC80 ([31:0] - [63:32])
+reg [63:0] instret;     // 0xC02 - 0xC82 ([31:0] - [63:32]) 
+
+localparam CYCLE_ID     = 12'hC00;
+localparam CYCLEH_ID    = 12'hC80;
+localparam INSTRET_ID   = 12'hC02;
+localparam INSTRETH_ID  = 12'hC82;
+
+always @(posedge clk) begin
+        cycle <= cycle + 1;
+end
+
 /************************************************
- *---------------------ALU-----------------------
+ ----------------------ALU-----------------------
  ************************************************/
 wire [31:0] aluIn1 = rs1;
 wire [31:0] aluIn2 = isALUR | isBranch ? rs2 : Iimm;
@@ -104,7 +128,24 @@ always @(*) begin
 end
 
 /************************************************
- *--------------------BRANCH---------------------
+ -----------------------CSR----------------------
+ ************************************************/
+wire isCSR = isSYS & ((funct3 != 3'b000) & (funct3 != 3'b100));
+
+reg [31:0] csrData;
+always @(*) begin
+        if (Iimm == CYCLE_ID)
+                csrData = cycle[31:0];
+        else if (Iimm == CYCLEH_ID)
+                csrData = cycle[63:32];
+        else if (Iimm == INSTRET_ID)
+                csrData = instret[31:0];
+        else // if (Iimm == INSTRETH_ID)
+                csrData = instret[63:32];
+end
+
+/************************************************
+ ---------------------BRANCH---------------------
  ************************************************/
 reg takeBranch;
 always @(*) begin
@@ -126,7 +167,7 @@ always @(*) begin
 end
 
 /************************************************
- *--------------------JUMPS----------------------
+ ---------------------JUMPS----------------------
  ************************************************/
 
 wire [31:0] PCplusImm = PC + ( instr[3] ? Jimm[31:0] :
@@ -146,7 +187,7 @@ always @(*) begin
 end
 
 /************************************************
- *---------------------LOAD----------------------
+ ----------------------LOAD----------------------
  ************************************************/
 // Determine type of load. Word, Halfword, or Byte
 wire loadStoreByte = (funct3[1:0] == 2'b00);
@@ -170,7 +211,7 @@ always @(*) begin
 end
 
 /************************************************
- *--------------------STORE----------------------
+ ---------------------STORE----------------------
  ************************************************/
 assign memWData [7:0]  = rs2[7:0];
 assign memWData[15:8]  = loadStoreAddr[0] ? rs2[7:0]  : rs2[15:8];
@@ -200,7 +241,7 @@ always @(*) begin
 end
 
 /************************************************
- *-----------------STATE MACHINE-----------------
+ ------------------STATE MACHINE-----------------
  ************************************************/
 localparam FETCH_INSTR = 0;
 localparam WAIT_INSTR  = 1;
@@ -209,17 +250,18 @@ localparam WAIT_DATA   = 3;
 reg [1:0] state = FETCH_INSTR;
 
 // Instruction fetching
-assign progRomAddr = PC;
+// assign progRomAddr = PC;
 assign ramAddr = loadStoreAddr;
 assign ramRStrb = (state == EXECUTE & isLoad);
 assign memWMask = {4{(state == EXECUTE ) & isStore}} & storeMask;
 
 // Register Write Back
-assign writeBackData = (isJAL || isJALR) ? PCplus4 :
-        (isLUI) ? Uimm :
-        (isAUIPC) ? PCplusImm :
-        (isLoad) ? loadData :
-        aluOut;
+assign writeBackData = (isJAL || isJALR) ? PCplus4      :
+                       (isLUI)           ? Uimm         :
+                       (isAUIPC)         ? PCplusImm    :
+                       (isLoad)          ? loadData     :
+                       (isCSR)           ? csrData      :
+                                           aluOut;
 
 assign writeBackEn = ((state == EXECUTE && !isBranch && !isStore) ||
                       (state == WAIT_DATA));
@@ -236,17 +278,20 @@ always @(posedge clk or posedge reset) begin
 
                 case(state)
                         FETCH_INSTR: begin
+                                instr <= PROGROM[PC[15:2]];
                                 state <= WAIT_INSTR;
                         end
                         WAIT_INSTR: begin
-                                instr <= progRomData;
-                                rs1 <= RegisterFile[progRomData[19:15]];
-                                rs2 <= RegisterFile[progRomData[24:20]];
+                                rs1 <= RegisterFile[instr[19:15]];
+                                rs2 <= RegisterFile[instr[24:20]];
+                                instret <= instret + 1;
                                 state <= EXECUTE;
                         end
                         EXECUTE: begin
-                                if(!isSYS)
+                                if(!isEBREAK)
                                         PC <= nextPC;
+                                else
+                                        HALT <= 1;
 
                                 if (isLoad)
                                         state <= WAIT_DATA;
