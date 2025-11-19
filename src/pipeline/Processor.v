@@ -163,13 +163,11 @@ wire D_stall;
 
 wire rs1Hazard = !FD_nop && readsRs1(FD_instr) && rs1Id(FD_instr) != 0 && (
         (writesRd(DE_instr) && rs1Id(FD_instr) == rdId(DE_instr)) ||
-        (writesRd(EM_instr) && rs1Id(FD_instr) == rdId(EM_instr)) ||
-        (writesRd(MW_instr) && rs1Id(FD_instr) == rdId(MW_instr)) ) ;
+        (writesRd(EM_instr) && rs1Id(FD_instr) == rdId(EM_instr)) ) ;
 
 wire rs2Hazard = !FD_nop && readsRs2(FD_instr) && rs2Id(FD_instr) != 0 && (
         (writesRd(DE_instr) && rs2Id(FD_instr) == rdId(DE_instr)) ||
-        (writesRd(EM_instr) && rs2Id(FD_instr) == rdId(EM_instr)) ||
-        (writesRd(MW_instr) && rs2Id(FD_instr) == rdId(MW_instr)) ) ;
+        (writesRd(EM_instr) && rs2Id(FD_instr) == rdId(EM_instr)) ) ;
 
 wire dataHazard = rs1Hazard || rs2Hazard;
 
@@ -228,10 +226,7 @@ always @(posedge clk) begin
         if (E_flush)
                 DE_instr <= NOP;
 
-        DE_rs1 <= RegisterFile[rs1Id(FD_instr)];
-        DE_rs2 <= RegisterFile[rs2Id(FD_instr)];
-
-        if (wbEnable) 
+                if (wbEnable) 
                 RegisterFile[wbRdId] <= wbData;
 end
 
@@ -239,10 +234,10 @@ always @(posedge clk) begin
 end
 
 /*----------------------------------------------------------------------------*/
-reg [31:0] DE_PC;
-reg [31:0] DE_instr;
-reg [31:0] DE_rs1;
-reg [31:0] DE_rs2;
+reg  [31:0] DE_PC;
+reg  [31:0] DE_instr;
+wire [31:0] DE_rs1 = RegisterFile[rs1Id(DE_instr)];
+wire [31:0] DE_rs2 = RegisterFile[rs2Id(DE_instr)];
 /******************************************************************************
  ---------------------------------EXECUTE UNIT--------------------------------*
  ******************************************************************************/
