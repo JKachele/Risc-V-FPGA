@@ -1,5 +1,6 @@
 #include <stdio.h>
-#include "VSOC.h"
+#include "../obj_dir/VSOC.h"
+#include "../obj_dir/VSOC___024root.h"
 #include "testbench.h"
 #include "uartsim.h"
 
@@ -21,7 +22,7 @@ public:
         }
 
         virtual bool done(void) {
-                if (m_core->SOC__DOT__CPU__DOT__HALT == 1)
+                if (m_core->rootp->SOC__DOT__CPU__DOT__HALT == 1)
                         return true;
                 else
                         return TESTB<VSOC>::done();

@@ -6,15 +6,15 @@
  *Created-------Monday Nov 17, 2025 20:09:17 UTC
  ************************************************/
 module Processor(
-        input  clk,
-        input  reset,
-        // output [31:0] progRomAddr,
-        // input  [31:0] progRomData,
-        output [31:0] ramAddr,
-        input  [31:0] ramRData,
-        output ramRStrb,
-        output [31:0] memWData,
-        output [3:0]  memWMask
+        input  wire clk,
+        input  wire reset,
+        // output wire [31:0] progRomAddr,
+        // input  wire [31:0] progRomData,
+        output wire [31:0] ramAddr,
+        input  wire [31:0] ramRData,
+        output wire ramRStrb,
+        output wire [31:0] memWData,
+        output wire [3:0]  memWMask
 );
 
 reg [31:0] PROGROM [0:16383];

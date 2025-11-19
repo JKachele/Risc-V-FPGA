@@ -7,10 +7,10 @@
  ************************************************/
 
 module SSegDisplay (
-        input clk,
-        input [31:0] num,
-        output [7:0] SSEG_CA,
-        output [7:0] SSEG_AN
+        input  wire clk,
+        input  wire [31:0] num,
+        output wire [7:0] SSEG_CA,
+        output wire [7:0] SSEG_AN
 );
 
 reg [7:0] DIGITS [0:15];

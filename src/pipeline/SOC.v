@@ -13,13 +13,13 @@
 `include "Processor.v"
 
 module SOC (
-        input CLK,
-        input RESET,
-        output [15:0] LEDS,
-        input RXD,
-        output TXD,
-        output [7:0] SSEG_CA,
-        output [7:0] SSEG_AN
+        input  wire CLK,
+        input  wire RESET,
+        output wire [15:0] LEDS,
+        input  wire RXD,
+        output wire TXD,
+        output wire [7:0] SSEG_CA,
+        output wire [7:0] SSEG_AN
 );
 
 wire clk;

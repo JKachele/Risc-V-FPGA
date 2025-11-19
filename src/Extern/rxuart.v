@@ -129,13 +129,14 @@ module rxuart #(
 	wire	[23:0]	clocks_per_baud, half_baud;
 	wire	[1:0]	data_bits;
 	wire		use_parity, parity_even, dblstop, fixd_parity;
+	wire    [27:0]	break_condition;
 	reg	[29:0]	r_setup;
 	reg	[3:0]	state;
 
 	reg	[23:0]	baud_counter;
 	reg		zero_baud_counter;
 	reg		q_uart, qq_uart, ck_uart;
-	reg	[27:0]	chg_counter, break_condition;
+	reg	[27:0]	chg_counter;
 	reg		line_synch;
 	reg		half_baud_time;
 	reg	[7:0]	data_reg;

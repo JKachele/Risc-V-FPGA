@@ -39,6 +39,11 @@ bin/
 # Verilator Files
 obj_dir/
 
+# Vivado Logs
+tcl/reports
+*.jou
+*.log
+
 # Debug files
 *.dSYM/
 *.su

@@ -7,9 +7,9 @@
  ************************************************/
 
 module LedDim (
-        input             clk,
-        input      [15:0] leds_i,
-        output reg [15:0] leds_o
+        input  wire        clk,
+        input  wire [15:0] leds_i,
+        output reg  [15:0] leds_o
 );
 
 reg count;

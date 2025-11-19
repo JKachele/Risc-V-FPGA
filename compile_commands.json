@@ -3,6 +3,7 @@
     "arguments": [
       "/usr/bin/g++",
       "-I.",
+      "-I../obj_dir",
       "-I/usr/share/verilator/include",
       "-I/usr/share/verilator/include/vltstd",
       "-DVM_COVERAGE=0",

@@ -15,9 +15,9 @@
 .equ DY, (YMAX-YMIN)/80
 .equ NORM_MAX,(4 << MANDEL_SHIFT)
 
-.global mandelPrint
+.global main
 .text
-mandelPrint:
+main:
         # Store return address and saved registers on the stack
         addi sp, sp, -52
         sw ra ,  0(sp)
