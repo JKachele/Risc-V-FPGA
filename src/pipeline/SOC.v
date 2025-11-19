@@ -9,7 +9,6 @@
 `include "../Extern/SSegDisplay.v"
 `include "../Extern/LedDim.v"
 `include "../Extern/txuart.v"
-`include "Memory.v"
 `include "Processor.v"
 
 module SOC (
@@ -25,43 +24,22 @@ module SOC (
 wire clk;
 wire reset;
 
-// Memory
-// wire [31:0] progRomAddr;
-// wire [31:0] progRomData;
-wire [31:0] memAddr;
-wire [31:0] memRData;
-wire        memRstrb;
-wire [31:0] memWData;
-wire [3:0]  memWMask;
+// IO
+wire [31:0] IO_memAddr;
+wire [31:0] IO_memRData;
+wire [31:0] IO_memWData;
+wire        IO_memWr;
 
 Processor CPU(
         .clk(clk),
         .reset(reset),
-        // .progRomAddr(progRomAddr),
-        // .progRomData(progRomData),
-        .ramAddr(memAddr),
-        .ramRData(memRData),
-        .ramRStrb(memRstrb),
-        .memWData(memWData),
-        .memWMask(memWMask)
+        .IO_memAddr(IO_memAddr),
+        .IO_memRData(IO_memRData),
+        .IO_memWData(IO_memWData),
+        .IO_memWr(IO_memWr)
 );
 
-wire [31:0] ramRData;
-wire [29:0] memWordAddr = memAddr[31:2];
-wire isIO = memAddr[22];
-wire isRam = !isIO;
-wire memWstrb = |memWMask;
-
-Memory RAM(
-        .clk(clk),
-        // .progRomAddr(progRomAddr),
-        // .progRomData(progRomData),
-        .memAddr(memAddr),
-        .memRData(ramRData),
-        .memRstrb(isRam & memRstrb),
-        .memWData(memWData),
-        .memWMask({4{isRam}} & memWMask)
-);
+wire [13:0] IO_wordAddr = IO_memAddr[15:2];
 
 // Output Indicators
 localparam IO_LEDS_bit          = 0;
@@ -72,20 +50,33 @@ localparam IO_SSEG_bit          = 3;
 reg [15:0] leds;
 reg [31:0] sseg;
 always @(posedge clk) begin
-        if (isIO & memWstrb) begin
-                if (memWordAddr[IO_LEDS_bit])
-                        leds[15:0] <= memWData[15:0];
-                else if (memWordAddr[IO_SSEG_bit])
-                        sseg <= memWData;
+        if (IO_memWr) begin
+                if (IO_wordAddr[IO_LEDS_bit])
+                        leds[15:0] <= IO_memWData[15:0];
+                else if (IO_wordAddr[IO_SSEG_bit])
+                        sseg <= IO_memWData;
         end
 end
 
-wire uartValid = isIO & memWstrb & memWordAddr[IO_UART_DAT_bit];
+wire uartValid = IO_memWr & IO_wordAddr[IO_UART_DAT_bit];
 wire uartBusy;
 
-wire [31:0] IORData = memWordAddr[IO_UART_CTRL_bit] ? {22'b0, uartBusy, 9'b0}
+assign IO_memRData = IO_wordAddr[IO_UART_CTRL_bit] ? {22'b0, uartBusy, 9'b0}
                                                     : 32'b0;
-assign memRData = isRam ? ramRData : IORData;
+// 115200 baud, 8-bit, no parity, 1 stop bit
+localparam UART_SETUP = {1'b0, 2'b00, 1'b0, 3'b000, 24'h000364};
+
+txuart TXUART (
+        .i_clk(clk),
+        .i_reset(reset),
+        .i_setup(UART_SETUP),
+        .i_break(0),
+        .i_wr(uartValid),
+        .i_data(IO_memWData[7:0]),
+        .i_cts_n(0),
+        .o_uart_tx(TXD),
+        .o_busy(uartBusy)
+);
 
 wire ssegClk;
 SSegDisplay SSegDisp (
@@ -105,20 +96,6 @@ SSegDisplay SSegDisp (
         );
 `endif   
 
-// 115200 baud, 8-bit, no parity, 1 stop bit
-localparam UART_SETUP = {1'b0, 2'b00, 1'b0, 3'b000, 24'h000364};
-
-txuart TXUART (
-        .i_clk(clk),
-        .i_reset(reset),
-        .i_setup(UART_SETUP),
-        .i_break(0),
-        .i_wr(uartValid),
-        .i_data(memWData[7:0]),
-        .i_cts_n(0),
-        .o_uart_tx(TXD),
-        .o_busy(uartBusy)
-);
 
 Clockworks CW(
         .CLK(CLK),

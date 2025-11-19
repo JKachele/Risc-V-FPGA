@@ -3,34 +3,34 @@
 # @file        : Makefile
 # @created     : Friday Oct 17, 2025 14:39:28 UTC
 ######################################################################
-RVTOOL_PREFIX = riscv64-unknown-elf
-RVTOOL_DIR = /opt/riscv
-RV_LIB_DIR = $(RVTOOL_DIR)/$(RVTOOL_PREFIX)/lib/rv32i/ilp32
-GCC_LIB_DIR = /opt/riscv/lib/gcc/riscv64-unknown-elf/10.1.0/rv32i/ilp32
+RVTOOL_PREFIX := riscv64-unknown-elf
+RVTOOL_DIR := /opt/riscv
+RV_LIB_DIR := $(RVTOOL_DIR)/$(RVTOOL_PREFIX)/lib/rv32i/ilp32
+GCC_LIB_DIR := /opt/riscv/lib/gcc/riscv64-unknown-elf/10.1.0/rv32i/ilp32
 
-CC = $(RVTOOL_PREFIX)-gcc
-LD = $(RVTOOL_PREFIX)-ld
-OBJCOPY = $(RVTOOL_PREFIX)-objcopy
-CFLAGS = -march=rv32i -mabi=ilp32 -nostdlib -Wno-builtin-declaration-mismatch
-LDFLAGS  = -m elf32lriscv -nostdlib --no-relax
+CC := $(RVTOOL_PREFIX)-gcc
+LD := $(RVTOOL_PREFIX)-ld
+OBJCOPY := $(RVTOOL_PREFIX)-objcopy
+CFLAGS := -march=rv32i -mabi=ilp32 -nostdlib -Wno-builtin-declaration-mismatch
+LDFLAGS := -m elf32lriscv -nostdlib --no-relax
 LDFLAGS += -L$(RV_LIB_DIR) -lm $(GCC_LIB_DIR)/libgcc.a
 
 # Verilog
-VSRC = src/pipeline/SOC.v
-TOP = SOC
-XDC = src/Extern/NexusA7.xdc
+VSRC := src/pipeline/SOC.v
+TOP := SOC
+XDC := src/Extern/NexusA7.xdc
 
 # Simulation
-TB = verilator
-TBFLAGS  = -DBENCH -Wno-fatal -Isrc -Isrc/pipeline -Isrc/Extern
+TB := verilator
+TBFLAGS := -DBENCH -Wno-fatal -Isrc -Isrc/pipeline -Isrc/Extern
 TBFLAGS += --top-module $(TOP) --trace --build -cc -exe
-TBSRC = $(wildcard tb/*.cpp)
+TBSRC := $(wildcard tb/*.cpp)
 
 BIN_DIR := bin
 BUILD_DIR := build
 
 # Firmware
-SRC := firmware/startPipeline.S firmware/raystones.c
+SRC := firmware/startPipeline.S firmware/testRdcycle.c
 SRC += $(wildcard firmware/*/*.S) $(wildcard firmware/*/*.c) 
 OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
 LDSCRIPT = firmware/ram.ld

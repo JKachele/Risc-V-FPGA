@@ -8,71 +8,116 @@
 module Processor(
         input  wire clk,
         input  wire reset,
-        // output wire [31:0] progRomAddr,
-        // input  wire [31:0] progRomData,
-        output wire [31:0] ramAddr,
-        input  wire [31:0] ramRData,
-        output wire ramRStrb,
-        output wire [31:0] memWData,
-        output wire [3:0]  memWMask
+        output wire [31:0] IO_memAddr,
+        input  wire [31:0] IO_memRData,
+        output wire [31:0] IO_memWData,
+        output wire        IO_memWr
 );
 
-reg [31:0] PROGROM [0:16383];
+/******************************************************************************
+ --------------------------------STATE MACHINE---------------------------------
+ ******************************************************************************/
 
-initial begin
-        $readmemh("../bin/ROM.hex",PROGROM);
+localparam F_BIT = 0; localparam F_STATE = 1 << F_BIT;
+localparam D_BIT = 1; localparam D_STATE = 1 << D_BIT;
+localparam E_BIT = 2; localparam E_STATE = 1 << E_BIT;
+localparam M_BIT = 3; localparam M_STATE = 1 << M_BIT;
+localparam W_BIT = 4; localparam W_STATE = 1 << W_BIT;
+
+reg [4:0] state;
+wire      HALT;
+
+always @(posedge clk) begin
+        if (reset || state == 5'b0)
+                state <= F_STATE;
+        else if (!HALT)
+                state <= {state[3:0], state[4]};
 end
 
-reg [31:0] PC;       // program counter
-reg [31:0] instr;    // current instruction
+/******************************************************************************
+ -------------------------------HELPER FUNCTIONS-------------------------------
+ ******************************************************************************/
 
 // Used RISC-V ISM Version 20250508, Ch. 35, Page 609
 // 11 RISC-V OpCodes
-wire isLUI      = (instr[6:0] == 7'b0110111);
-wire isAUIPC    = (instr[6:0] == 7'b0010111);
-wire isJAL      = (instr[6:0] == 7'b1101111);
-wire isJALR     = (instr[6:0] == 7'b1100111);
-wire isBranch   = (instr[6:0] == 7'b1100011);
-wire isLoad     = (instr[6:0] == 7'b0000011);
-wire isStore    = (instr[6:0] == 7'b0100011);
-wire isALUI     = (instr[6:0] == 7'b0010011);
-wire isALUR     = (instr[6:0] == 7'b0110011);
-wire isFENCE    = (instr[6:0] == 7'b0001111);
-wire isSYS      = (instr[6:0] == 7'b1110011);
+function isLUI;    input [31:0] I; isLUI    = (I[6:0] == 7'b0110111); endfunction
+function isAUIPC;  input [31:0] I; isAUIPC  = (I[6:0] == 7'b0010111); endfunction
+function isJAL;    input [31:0] I; isJAL    = (I[6:0] == 7'b1101111); endfunction
+function isJALR;   input [31:0] I; isJALR   = (I[6:0] == 7'b1100111); endfunction
+function isBranch; input [31:0] I; isBranch = (I[6:0] == 7'b1100011); endfunction
+function isLoad;   input [31:0] I; isLoad   = (I[6:0] == 7'b0000011); endfunction
+function isStore;  input [31:0] I; isStore  = (I[6:0] == 7'b0100011); endfunction
+function isALUI;   input [31:0] I; isALUI   = (I[6:0] == 7'b0010011); endfunction
+function isALUR;   input [31:0] I; isALUR   = (I[6:0] == 7'b0110011); endfunction
+function isFENCE;  input [31:0] I; isFENCE  = (I[6:0] == 7'b0001111); endfunction
+function isSYS;    input [31:0] I; isSYS    = (I[6:0] == 7'b1110011); endfunction
 
 // Instruction Functions
-wire [2:0] funct3 = instr[14:12];
-wire [6:0] funct7 = instr[31:25];
+function [2:0] funct3; input [31:0] I; funct3 = I[14:12]; endfunction
+function [6:0] funct7; input [31:0] I; funct7 = I[31:25]; endfunction
 
 // Source and dest registers
-wire [4:0] rs1Id = instr[19:15];
-wire [4:0] rs2Id = instr[24:20];
-wire [4:0] rdId  = instr[11:7];
+function [4:0]  rs1Id; input [31:0] I; rs1Id = I[19:15]; endfunction
+function [4:0]  rs2Id; input [31:0] I; rs2Id = I[24:20]; endfunction
+function [4:0]  rdId;  input [31:0] I; rdId  = I[11:7];  endfunction
+function [11:0] csrID; input [31:0] I; csrID = I[31:20]; endfunction
 
 // Immediate Values
-wire [31:0] Iimm={{21{instr[31]}}, instr[30:20]};
-wire [31:0] Simm={{21{instr[31]}}, instr[30:25],instr[11:7]};
-wire [31:0] Bimm={{20{instr[31]}}, instr[7],instr[30:25],instr[11:8],1'b0};
-wire [31:0] Uimm={instr[31],       instr[30:12], {12{1'b0}}};
-wire [31:0] Jimm={{12{instr[31]}}, instr[19:12],instr[20],instr[30:21],1'b0};
+function [31:0] Iimm;
+        input [31:0] I;
+        Iimm={{21{I[31]}}, I[30:20]};
+endfunction
 
-wire isEBREAK = isSYS & (funct3 == 3'b000) & (Iimm == 12'h001);
-reg HALT = 0;
+function [31:0] Simm;
+        input [31:0] I;
+        Simm={{21{I[31]}}, I[30:25],I[11:7]};
+endfunction
 
-wire isCSR = isSYS & ((funct3 != 3'b000) & (funct3 != 3'b100));
-wire [11:0] csrID = instr[31:20];
+function [31:0] Bimm;
+        input [31:0] I;
+        Bimm={{20{I[31]}}, I[7],I[30:25],I[11:8],1'b0};
+endfunction
 
-// Address for Load/Store
-wire [31:0] loadStoreAddr = rs1 + (isStore ? Simm : Iimm);
+function [31:0] Uimm;
+        input [31:0] I;
+        Uimm={I[31],       I[30:12], {12{1'b0}}};
+endfunction
 
-/************************************************
- -----------------REGISTER FILE------------------
- ************************************************/
+function [31:0] Jimm;
+        input [31:0] I;
+        Jimm={{12{I[31]}}, I[19:12],I[20],I[30:21],1'b0};
+endfunction
+
+// System Instructions
+function isEBREAK;
+        input [31:0] I;
+        isEBREAK = isSYS(I) & (funct3(I) == 3'b000) & (Iimm(I) == 12'h001);
+endfunction
+
+function isCSR;
+        input [31:0] I;
+        isCSR = isSYS(I) & ((funct3(I) != 3'b000) & (funct3(I) != 3'b100));
+endfunction
+
+// Flip a 32 bit word. Used by the shifter
+function [31:0] flip32;
+        input [31:0] x;
+        flip32 = {x[ 0], x[ 1], x[ 2], x[ 3], x[ 4], x[ 5], x[ 6], x[ 7],
+                x[ 8], x[ 9], x[10], x[11], x[12], x[13], x[14], x[15],
+                x[16], x[17], x[18], x[19], x[20], x[21], x[22], x[23],
+                x[24], x[25], x[26], x[27], x[28], x[29], x[30], x[31]};
+endfunction
+
+/******************************************************************************
+ --------------------------------REGISTER FILE---------------------------------
+ ******************************************************************************/
+
 reg [31:0] RegisterFile [0:31];
-reg [31:0] rs1;
-reg [31:0] rs2;
-wire [31:0] writeBackData;
-wire writeBackEn;
+
+// Writeback Signals
+wire        wbEnable;
+wire [31:0] wbData;
+wire [4:0]  wbRdId;
 
 // Control and Status Registers
 reg [63:0] cycle;       // 0xC00 - 0xC80 ([31:0] - [63:32])
@@ -87,224 +132,313 @@ always @(posedge clk) begin
         cycle <= cycle + 1;
 end
 
-/************************************************
- ----------------------ALU-----------------------
- ************************************************/
-wire [31:0] aluIn1 = rs1;
-wire [31:0] aluIn2 = isALUR | isBranch ? rs2 : Iimm;
+/******************************************************************************
+ ----------------------------------FETCH UNIT----------------------------------
+ ******************************************************************************/
 
-wire [31:0] aluPlus = aluIn1 + aluIn2;
-wire [32:0] aluMinus = {1'b0, aluIn1} + {1'b1, ~aluIn2} + 33'b1;
+reg [31:0] F_PC;
 
-wire LT  = (aluIn1[31] ^ aluIn2[31]) ? aluIn1[31] : aluMinus[32];
-wire LTU = aluMinus[32];
-wire EQ  = (aluMinus[31:0] == 0);
+// Jump signals from Execute Unit
+wire [31:0] jumpBranchAddr;
+wire        jumpOrBranch;
 
-wire [31:0] shifter = $signed({instr[30] & aluIn1[31], aluIn1}) >>> aluIn2[4:0];
+reg [31:0] PROGROM [0:16383];
+initial begin $readmemh("../bin/ROM.hex",PROGROM); end
 
-reg  [31:0] aluOut;
+always @(posedge clk) begin
+        if (reset) begin
+                F_PC <= 0;
+        end else if (state[F_BIT]) begin
+                FD_instr <= PROGROM[F_PC[15:2]];
+                FD_PC <= F_PC;
+                F_PC <= F_PC + 4;
+        end else if (state[M_BIT] & jumpOrBranch) begin
+                F_PC <= jumpBranchAddr;
+        end
+end
+
+/*----------------------------------------------------------------------------*/
+reg [31:0] FD_PC;
+reg [31:0] FD_instr;
+/******************************************************************************
+ ---------------------------------DECODE UNIT----------------------------------
+ ******************************************************************************/
+
+always @(posedge clk) begin
+        if (state[D_BIT]) begin
+                DE_PC <= FD_PC;
+                DE_instr <= FD_instr;
+                DE_rs1 <= RegisterFile[rs1Id(FD_instr)];
+                DE_rs2 <= RegisterFile[rs2Id(FD_instr)];
+        end
+end
+
+always @(posedge clk) begin
+        if (wbEnable) 
+                RegisterFile[wbRdId] <= wbData;
+end
+
+/*----------------------------------------------------------------------------*/
+reg [31:0] DE_PC;
+reg [31:0] DE_instr;
+reg [31:0] DE_rs1;
+reg [31:0] DE_rs2;
+/******************************************************************************
+ ---------------------------------EXECUTE UNIT--------------------------------*
+ ******************************************************************************/
+
+/*----------------------ALU-----------------------*/
+wire [31:0] E_aluIn1 = DE_rs1;
+wire [31:0] E_aluIn2 =
+        isALUR(DE_instr) | isBranch(DE_instr) ? DE_rs2 : Iimm(DE_instr);
+
+// Add Subtract
+wire [31:0] E_aluPlus = E_aluIn1 + E_aluIn2;
+wire [32:0] E_aluMinus = {1'b0, E_aluIn1} + {1'b1, ~E_aluIn2} + 33'b1;
+
+// Comparisons
+wire E_LT  = (E_aluIn1[31] ^ E_aluIn2[31]) ? E_aluIn1[31] : E_aluMinus[32];
+wire E_LTU = E_aluMinus[32];
+wire E_EQ  = (E_aluMinus[31:0] == 0);
+
+// Bit Shifts
+wire E_arithShift = DE_instr[30];
+wire [31:0] E_shifterIn = 
+        (funct3(DE_instr)==3'b001) ? flip32(E_aluIn1) : E_aluIn1;
+wire [31:0] E_shifter =
+        $signed({E_arithShift & E_aluIn1[31], E_shifterIn}) >>> E_aluIn2[4:0];
+wire [31:0] E_leftShift = flip32(E_shifter);
+
+reg  [31:0] E_aluOut;
 always @(*) begin
-        case (funct3)
+        case (funct3(DE_instr))
                 // Add/Sub
                 3'b000: begin
-                        if (funct7[5] == 1'b1 && isALUR) begin
-                                aluOut = aluMinus[31:0];
+                        if (DE_instr[30] & isALUR(DE_instr)) begin
+                                E_aluOut = E_aluMinus[31:0];
                         end else begin
-                                aluOut = aluPlus;
+                                E_aluOut = E_aluPlus;
                         end
                 end
                 // Left Shift
-                3'b001: aluOut = aluIn1 << aluIn2[4:0];
+                3'b001: E_aluOut = E_leftShift;
                 // Signed Comparason (<)
-                3'b010: aluOut = {31'b0, LT};
+                3'b010: E_aluOut = {31'b0, E_LT};
                 // Unsigned Comparason (<)
-                3'b011: aluOut = {31'b0, LTU};
+                3'b011: E_aluOut = {31'b0, E_LTU};
                 // XOR
-                3'b100: aluOut = aluIn1 ^ aluIn2;
+                3'b100: E_aluOut = E_aluIn1 ^ E_aluIn2;
                 // Logical/Atithmetic Right Shift
-                3'b101: aluOut = shifter;
+                3'b101: E_aluOut = E_shifter;
                 // OR
-                3'b110: aluOut = aluIn1 | aluIn2;
+                3'b110: E_aluOut = E_aluIn1 | E_aluIn2;
                 // AND
-                3'b111: aluOut = aluIn1 & aluIn2;
+                3'b111: E_aluOut = E_aluIn1 & E_aluIn2;
         endcase
 end
 
-/************************************************
- -----------------------CSR----------------------
- ************************************************/
-reg [31:0] csrData;
+/*------------------JUMP/BRANCH-------------------*/
+reg E_takeBranch;
 always @(*) begin
-        if (csrID == CYCLE_ID)
-                csrData = cycle[31:0];
-        else if (csrID == CYCLEH_ID)
-                csrData = cycle[63:32];
-        else if (csrID == INSTRET_ID)
-                csrData = instret[31:0];
-        else // if (csrID == INSTRETH_ID)
-                csrData = instret[63:32];
-end
-
-/************************************************
- ---------------------BRANCH---------------------
- ************************************************/
-reg takeBranch;
-always @(*) begin
-        case (funct3)
+        case (funct3(DE_instr))
                 // BEQ
-                3'b000:  takeBranch = EQ;
+                3'b000:  E_takeBranch = E_EQ;
                 // BNE
-                3'b001:  takeBranch = !EQ;
+                3'b001:  E_takeBranch = !E_EQ;
                 // BLT
-                3'b100:  takeBranch = LT;
+                3'b100:  E_takeBranch = E_LT;
                 // BGE
-                3'b101:  takeBranch = !LT;
+                3'b101:  E_takeBranch = !E_LT;
                 // BLTU
-                3'b110: takeBranch = LTU;
+                3'b110:  E_takeBranch = E_LTU;
                 // BGEU
-                3'b111: takeBranch = !LTU;
-                default:  takeBranch = 1'b0;
+                3'b111:  E_takeBranch = !E_LTU;
+                default: E_takeBranch = 1'b0;
         endcase
 end
 
-/************************************************
- ---------------------JUMPS----------------------
- ************************************************/
+wire E_jumpOrBranch = (
+        isJAL(DE_instr)  ||
+        isJALR(DE_instr) ||
+        (isBranch(DE_instr) && E_takeBranch)
+);
 
-wire [31:0] PCplusImm = PC + ( instr[3] ? Jimm[31:0] :
-        instr[4] ? Uimm[31:0] :
-        Bimm[31:0]);
-wire [31:0] PCplus4 = PC + 4;
+wire [31:0] E_jumpBranchAddr = 
+        isBranch(DE_instr) ? DE_PC + Bimm(DE_instr) :
+        isJAL(DE_instr)    ? DE_PC + Jimm(DE_instr) :
+        /* JALR */           {E_aluPlus[31:1], 1'b0};
 
-reg [31:0] nextPC;
-always @(*) begin
-        if ((isBranch && takeBranch) || isJAL) begin
-                nextPC = PCplusImm;
-        end else if (isJALR) begin
-                nextPC = {aluPlus[31:1],1'b0};
-        end else begin
-                nextPC = PCplus4;
+wire [31:0] E_result = 
+        (isJAL(DE_instr) | isJALR(DE_instr)) ? DE_PC + 4              :
+        isLUI(DE_instr)                      ? Uimm(DE_instr)         :
+        isAUIPC(DE_instr)                    ? DE_PC + Uimm(DE_instr) :
+        /* ALU OP */                           E_aluOut;
+
+/*------------------------------------------------*/
+// Memory access address
+wire [31:0] E_addr =
+        isStore(DE_instr) ? DE_rs1 + Simm(DE_instr) : DE_rs1 + Iimm(DE_instr);
+
+always @(posedge clk) begin
+        if (state[E_BIT]) begin
+                EM_PC <= DE_PC;
+                EM_instr <= DE_instr;
+                EM_rs2 <= DE_rs2;
+                EM_Eresult <= E_result;
+                EM_addr <= E_addr;
         end
 end
 
-/************************************************
- ----------------------LOAD----------------------
- ************************************************/
-// Determine type of load. Word, Halfword, or Byte
-wire loadStoreByte = (funct3[1:0] == 2'b00);
-wire loadStoreHalf = (funct3[1:0] == 2'b01);
+assign HALT = !reset & isEBREAK(DE_instr);
+assign jumpBranchAddr = E_jumpBranchAddr;
+assign jumpOrBranch = E_jumpOrBranch & state[M_BIT];
 
-wire [15:0] memHalf = loadStoreAddr[1] ? ramRData[31:16] : ramRData[15:0];
-wire [7:0]  memByte = loadStoreAddr[0] ? memHalf[15:8]  : memHalf[7:0];
+/*----------------------------------------------------------------------------*/
+reg [31:0] EM_PC;
+reg [31:0] EM_instr;
+reg [31:0] EM_rs2;
+reg [31:0] EM_Eresult;
+reg [31:0] EM_addr;
+/******************************************************************************
+ ------------------------------MEMORY ACCESS UNIT-----------------------------*
+ ******************************************************************************/
+
+wire [2:0] M_funct3 = funct3(EM_instr);
+wire M_is8 = (M_funct3[1:0] == 2'b00);
+wire M_isH = (M_funct3[1:0] == 2'b01);
+
+/*----------------------STORE---------------------*/
+wire [31:0] M_storeData;
+assign M_storeData [7:0]  = EM_rs2[7:0];
+assign M_storeData[15:8]  = EM_addr[0] ? EM_rs2[7:0]  : EM_rs2[15:8];
+assign M_storeData[23:16] = EM_addr[1] ? EM_rs2[7:0]  : EM_rs2[23:16];
+assign M_storeData[31:24] = EM_addr[0] ? EM_rs2[7:0]  :
+		            EM_addr[1] ? EM_rs2[15:8] : EM_rs2[31:24];
+
+reg [3:0] M_storeMask;
+always @(*) begin
+        if (M_is8) begin
+                if (EM_addr[1:0] == 2'b11)
+                        M_storeMask <= 4'b1000;
+                else if (EM_addr[1:0] == 2'b10)
+                        M_storeMask <= 4'b0100;
+                else if (EM_addr[1:0] == 2'b01)
+                        M_storeMask <= 4'b0010;
+                else
+                        M_storeMask <= 4'b0001;
+        end else if (M_isH) begin
+                if (EM_addr[1])
+                        M_storeMask <= 4'b1100;
+                else
+                        M_storeMask <= 4'b0011;
+        end else begin
+                M_storeMask <= 4'b1111;
+        end
+end
+
+wire M_isIO  = EM_addr[22];
+wire M_isRAM = !M_isIO;
+
+assign IO_memAddr  = EM_addr;
+assign IO_memWr    = state[M_BIT] & isStore(EM_instr) && M_isIO;
+assign IO_memWData = EM_rs2;
+
+wire [3:0] M_wmask = 
+        {4{isStore(EM_instr) & M_isRAM & state[M_BIT]}} & M_storeMask;
+
+reg [31:0] DATARAM [0:16383];
+
+initial begin
+        $readmemh("../bin/RAM.hex",DATARAM);
+end
+
+wire [29:0] M_wordAddr = EM_addr[31:2];
+always @(posedge clk) begin
+        MW_Mdata <=DATARAM[M_wordAddr];
+        if (M_wmask[0]) DATARAM[M_wordAddr][ 7:0 ] <= M_storeData[ 7:0 ];
+        if (M_wmask[1]) DATARAM[M_wordAddr][15:8 ] <= M_storeData[15:8 ];
+        if (M_wmask[2]) DATARAM[M_wordAddr][23:16] <= M_storeData[23:16];
+        if (M_wmask[3]) DATARAM[M_wordAddr][31:24] <= M_storeData[31:24];
+end
+
+/*-----------------------CSR----------------------*/
+reg [31:0] M_csrData;
+always @(*) begin
+        if (csrID(EM_instr) == CYCLE_ID)
+                M_csrData = cycle[31:0];
+        else if (csrID(EM_instr) == CYCLEH_ID)
+                M_csrData = cycle[63:32];
+        else if (csrID(EM_instr) == INSTRET_ID)
+                M_csrData = instret[31:0];
+        else // if (csrID(EM_instr) == INSTRETH_ID)
+                M_csrData = instret[63:32];
+end
+
+/*------------------------------------------------*/
+always @(posedge clk) begin
+        if (state[M_BIT]) begin
+                MW_PC <= EM_PC;
+                MW_instr <= EM_instr;
+                MW_Eresult <= EM_Eresult;
+                MW_IOresult <= IO_memRData;
+                MW_addr <= EM_addr;
+                MW_CSRresult <= M_csrData;
+
+                if (reset)
+                        instret <= 0;
+                else
+                        instret <= instret + 1;
+        end
+end
+
+/*----------------------------------------------------------------------------*/
+reg [31:0] MW_PC;
+reg [31:0] MW_instr;
+reg [31:0] MW_Eresult;
+reg [31:0] MW_addr;
+reg [31:0] MW_Mdata;
+reg [31:0] MW_IOresult;
+reg [31:0] MW_CSRresult;
+/******************************************************************************
+ -------------------------------WRITE BACK UNIT-------------------------------- 
+ ******************************************************************************/
+
+wire [2:0] W_funct3 = funct3(MW_instr);
+
+/*----------------------LOAD----------------------*/
+// Determine type of load. Word, Halfword, or Byte
+wire W_loadByte = (W_funct3[1:0] == 2'b00);
+wire W_loadHalf = (W_funct3[1:0] == 2'b01);
+wire W_isIO = MW_addr[22];
+
+wire [15:0] W_memHalf = MW_addr[1] ? MW_Mdata[31:16] : MW_Mdata[15:0];
+wire [7:0]  W_memByte = MW_addr[0] ? W_memHalf[15:8]  : W_memHalf[7:0];
 
 // Sign expansion
 // Based on funct3[2]: 0->sign expand, 1->unsigned
-wire loadSign = !funct3[2] & (loadStoreByte ? memByte[7] : memHalf[15]);
+wire W_loadSign = !W_funct3[2] & (W_loadByte ? W_memByte[7] : W_memHalf[15]);
 
-reg [31:0] loadData;
+reg [31:0] W_Mresult;
 always @(*) begin
-        if(loadStoreByte)
-                loadData <= {{24{loadSign}}, memByte};
-        else if(loadStoreHalf)
-                loadData <= {{16{loadSign}}, memHalf};
+        if(W_loadByte)
+                W_Mresult <= {{24{W_loadSign}}, W_memByte};
+        else if(W_loadHalf)
+                W_Mresult <= {{16{W_loadSign}}, W_memHalf};
         else
-                loadData <= ramRData;
+                W_Mresult <= MW_Mdata;
 end
 
-/************************************************
- ---------------------STORE----------------------
- ************************************************/
-assign memWData [7:0]  = rs2[7:0];
-assign memWData[15:8]  = loadStoreAddr[0] ? rs2[7:0]  : rs2[15:8];
-assign memWData[23:16] = loadStoreAddr[1] ? rs2[7:0]  : rs2[23:16];
-assign memWData[31:24] = loadStoreAddr[0] ? rs2[7:0]  :
-		         loadStoreAddr[1] ? rs2[15:8] : rs2[31:24];
+/*----------------REGISTER WRITEBACK--------------*/
+assign wbData =
+        isLoad(MW_instr) ? (W_isIO ? MW_IOresult : W_Mresult) :
+        isCSR(MW_instr)  ? MW_CSRresult : MW_Eresult;
 
-reg [3:0] storeMask;
-always @(*) begin
-        if (loadStoreByte) begin
-                if (loadStoreAddr[1:0] == 2'b11)
-                        storeMask <= 4'b1000;
-                else if (loadStoreAddr[1:0] == 2'b10)
-                        storeMask <= 4'b0100;
-                else if (loadStoreAddr[1:0] == 2'b01)
-                        storeMask <= 4'b0010;
-                else
-                        storeMask <= 4'b0001;
-        end else if (loadStoreHalf) begin
-                if (loadStoreAddr[1])
-                        storeMask <= 4'b1100;
-                else
-                        storeMask <= 4'b0011;
-        end else begin
-                storeMask <= 4'b1111;
-        end
-end
+assign wbEnable = 
+        !isBranch(MW_instr) && !isStore(MW_instr) && (rdId(MW_instr) != 0);
 
-/************************************************
- ------------------STATE MACHINE-----------------
- ************************************************/
-localparam FETCH_INSTR = 0;
-localparam WAIT_INSTR  = 1;
-localparam EXECUTE     = 2;
-localparam WAIT_DATA   = 3;
-reg [1:0] state = FETCH_INSTR;
+assign wbRdId = rdId(MW_instr);
 
-// Instruction fetching
-// assign progRomAddr = PC;
-assign ramAddr = loadStoreAddr;
-assign ramRStrb = (state == EXECUTE & isLoad);
-assign memWMask = {4{(state == EXECUTE ) & isStore}} & storeMask;
-
-// Register Write Back
-assign writeBackData = (isJAL || isJALR) ? PCplus4      :
-                       (isLUI)           ? Uimm         :
-                       (isAUIPC)         ? PCplusImm    :
-                       (isLoad)          ? loadData     :
-                       (isCSR)           ? csrData      :
-                                           aluOut;
-
-assign writeBackEn = ((state == EXECUTE && !isBranch && !isStore) ||
-                      (state == WAIT_DATA));
-
-// State Machine
-always @(posedge clk or posedge reset) begin
-        if(reset) begin
-                PC <= 0;
-                state <= FETCH_INSTR;
-        end else begin
-                if(writeBackEn && rdId != 0) begin
-                        RegisterFile[rdId] <= writeBackData;
-                end
-
-                case(state)
-                        FETCH_INSTR: begin
-                                instr <= PROGROM[PC[15:2]];
-                                state <= WAIT_INSTR;
-                        end
-                        WAIT_INSTR: begin
-                                rs1 <= RegisterFile[instr[19:15]];
-                                rs2 <= RegisterFile[instr[24:20]];
-                                instret <= instret + 1;
-                                state <= EXECUTE;
-                        end
-                        EXECUTE: begin
-                                if(!isEBREAK)
-                                        PC <= nextPC;
-                                else
-                                        HALT <= 1;
-
-                                if (isLoad)
-                                        state <= WAIT_DATA;
-                                else
-                                        state <= FETCH_INSTR;
-                        end
-                        WAIT_DATA: begin
-                                state <= FETCH_INSTR;
-                        end
-                endcase
-        end
-end
+/*----------------------------------------------------------------------------*/
 
 endmodule
 

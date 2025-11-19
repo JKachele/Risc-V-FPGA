@@ -1,32 +1,33 @@
 /*************************************************
  *File----------SOC.v
  *Project-------Risc-V-FPGA
- *Author--------Justin Kachele
- *Created-------Saturday Nov 01, 2025 08:24:54 EDT
  *License-------GNU GPL-3.0
+ *Author--------Justin Kachele
+ *Created-------Monday Nov 17, 2025 20:09:00 UTC
  ************************************************/
 `include "../Extern/Clockworks.v"
 `include "../Extern/SSegDisplay.v"
 `include "../Extern/LedDim.v"
 `include "../Extern/txuart.v"
-`include "../Extern/rxuart.v"
 `include "Memory.v"
 `include "Processor.v"
 
 module SOC (
-        input CLK,
-        input RESET,
-        output [15:0] LEDS,
-        input RXD,
-        output TXD,
-        output [7:0] SSEG_CA,
-        output [7:0] SSEG_AN
+        input  wire CLK,
+        input  wire RESET,
+        output wire [15:0] LEDS,
+        input  wire RXD,
+        output wire TXD,
+        output wire [7:0] SSEG_CA,
+        output wire [7:0] SSEG_AN
 );
 
 wire clk;
 wire reset;
 
 // Memory
+// wire [31:0] progRomAddr;
+// wire [31:0] progRomData;
 wire [31:0] memAddr;
 wire [31:0] memRData;
 wire        memRstrb;
@@ -36,9 +37,11 @@ wire [3:0]  memWMask;
 Processor CPU(
         .clk(clk),
         .reset(reset),
-        .memAddr(memAddr),
-        .memRData(memRData),
-        .memRstrb(memRstrb),
+        // .progRomAddr(progRomAddr),
+        // .progRomData(progRomData),
+        .ramAddr(memAddr),
+        .ramRData(memRData),
+        .ramRStrb(memRstrb),
         .memWData(memWData),
         .memWMask(memWMask)
 );
@@ -51,6 +54,8 @@ wire memWstrb = |memWMask;
 
 Memory RAM(
         .clk(clk),
+        // .progRomAddr(progRomAddr),
+        // .progRomData(progRomData),
         .memAddr(memAddr),
         .memRData(ramRData),
         .memRstrb(isRam & memRstrb),
@@ -77,12 +82,6 @@ end
 
 wire uartValid = isIO & memWstrb & memWordAddr[IO_UART_DAT_bit];
 wire uartBusy;
-
-wire uartReady;
-wire [7:0] uartData;
-always @(posedge uartReady) begin
-        leds[7:0] <= uartData;
-end
 
 wire [31:0] IORData = memWordAddr[IO_UART_CTRL_bit] ? {22'b0, uartBusy, 9'b0}
                                                     : 32'b0;
@@ -119,15 +118,6 @@ txuart TXUART (
         .i_cts_n(0),
         .o_uart_tx(TXD),
         .o_busy(uartBusy)
-);
-
-rxuart RXUART (
-        .i_clk(clk),
-        .i_reset(reset),
-        .i_setup(UART_SETUP),
-        .i_uart_rx(RXD),
-        .o_wr(uartReady),
-        .o_data(uartData)
 );
 
 Clockworks CW(

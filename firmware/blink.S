@@ -1,7 +1,8 @@
 .equ IO_LEDS, 0x04
 
-.global blink
+.global main
 .text
+main:
 blink:
         # Blink 5 times
         li t0, 5
