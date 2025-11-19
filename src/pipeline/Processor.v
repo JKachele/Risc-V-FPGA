@@ -5,6 +5,8 @@
  *Author--------Justin Kachele
  *Created-------Monday Nov 17, 2025 20:09:17 UTC
  ************************************************/
+// `define VERBOSE
+
 module Processor(
         input  wire clk,
         input  wire reset,
@@ -14,25 +16,23 @@ module Processor(
         output wire        IO_memWr
 );
 
-/******************************************************************************
- --------------------------------STATE MACHINE---------------------------------
- ******************************************************************************/
+`include "../Extern/riscv_disassembly.v"
 
-localparam F_BIT = 0; localparam F_STATE = 1 << F_BIT;
-localparam D_BIT = 1; localparam D_STATE = 1 << D_BIT;
-localparam E_BIT = 2; localparam E_STATE = 1 << E_BIT;
-localparam M_BIT = 3; localparam M_STATE = 1 << M_BIT;
-localparam W_BIT = 4; localparam W_STATE = 1 << W_BIT;
-
-reg [4:0] state;
-wire      HALT;
-
-always @(posedge clk) begin
-        if (reset || state == 5'b0)
-                state <= F_STATE;
-        else if (!HALT)
-                state <= {state[3:0], state[4]};
-end
+/*
+ * The 11 RISC-V opcodes
+ * ----------------------------------
+ * ALUreg  // rd <- rs1 OP rs2
+ * ALUimm  // rd <- rs1 OP Iimm
+ * Branch  // if(rs1 OP rs2) PC<-PC+Bimm
+ * JALR    // rd <- PC+4; PC<-rs1+Iimm
+ * JAL     // rd <- PC+4; PC<-PC+Jimm
+ * AUIPC   // rd <- PC + Uimm
+ * LUI     // rd <- Uimm
+ * Load    // rd <- mem[rs1+Iimm]
+ * Store   // mem[rs1+Simm] <- rs2
+ * Fence   // special
+ * SYSTEM  // special
+ */
 
 /******************************************************************************
  -------------------------------HELPER FUNCTIONS-------------------------------
@@ -108,6 +108,21 @@ function [31:0] flip32;
                 x[24], x[25], x[26], x[27], x[28], x[29], x[30], x[31]};
 endfunction
 
+function writesRd;
+        input [31:0] I;
+        writesRd = !isStore(I) && !isBranch(I);
+endfunction
+
+function readsRs1;
+        input [31:0] I;
+        readsRs1 = !(isJAL(I) || isAUIPC(I) || isLUI(I));
+endfunction
+
+function readsRs2;
+        input [31:0] I;
+        readsRs2 = isALUR(I) || isBranch(I) || isStore(I);
+endfunction
+
 /******************************************************************************
  --------------------------------REGISTER FILE---------------------------------
  ******************************************************************************/
@@ -133,6 +148,38 @@ always @(posedge clk) begin
 end
 
 /******************************************************************************
+ -------------------------------CONTROL SIGNALS--------------------------------
+ ******************************************************************************/
+
+wire HALT;
+
+localparam NOP = 32'b0000000_00000_00000_000_00000_0110011;
+
+wire D_flush;
+wire E_flush;
+
+wire F_stall;
+wire D_stall;
+
+wire rs1Hazard = !FD_nop && readsRs1(FD_instr) && rs1Id(FD_instr) != 0 && (
+        (writesRd(DE_instr) && rs1Id(FD_instr) == rdId(DE_instr)) ||
+        (writesRd(EM_instr) && rs1Id(FD_instr) == rdId(EM_instr)) ||
+        (writesRd(MW_instr) && rs1Id(FD_instr) == rdId(MW_instr)) ) ;
+
+wire rs2Hazard = !FD_nop && readsRs2(FD_instr) && rs2Id(FD_instr) != 0 && (
+        (writesRd(DE_instr) && rs2Id(FD_instr) == rdId(DE_instr)) ||
+        (writesRd(EM_instr) && rs2Id(FD_instr) == rdId(EM_instr)) ||
+        (writesRd(MW_instr) && rs2Id(FD_instr) == rdId(MW_instr)) ) ;
+
+wire dataHazard = rs1Hazard || rs2Hazard;
+
+assign F_stall = dataHazard | HALT;
+assign D_stall = dataHazard | HALT;
+
+assign D_flush = E_jumpOrBranch;
+assign E_flush = E_jumpOrBranch | dataHazard;
+
+/******************************************************************************
  ----------------------------------FETCH UNIT----------------------------------
  ******************************************************************************/
 
@@ -146,36 +193,49 @@ reg [31:0] PROGROM [0:16383];
 initial begin $readmemh("../bin/ROM.hex",PROGROM); end
 
 always @(posedge clk) begin
-        if (reset) begin
-                F_PC <= 0;
-        end else if (state[F_BIT]) begin
+        if (!F_stall) begin
                 FD_instr <= PROGROM[F_PC[15:2]];
                 FD_PC <= F_PC;
                 F_PC <= F_PC + 4;
-        end else if (state[M_BIT] & jumpOrBranch) begin
+        end
+
+        if (jumpOrBranch) begin
                 F_PC <= jumpBranchAddr;
         end
+
+        FD_nop <= D_flush | reset;
+
+        if (reset) begin
+                F_PC <= 0;
+        end
+
 end
 
 /*----------------------------------------------------------------------------*/
 reg [31:0] FD_PC;
 reg [31:0] FD_instr;
+reg        FD_nop;
 /******************************************************************************
  ---------------------------------DECODE UNIT----------------------------------
  ******************************************************************************/
 
 always @(posedge clk) begin
-        if (state[D_BIT]) begin
+        if (!D_stall) begin
                 DE_PC <= FD_PC;
-                DE_instr <= FD_instr;
-                DE_rs1 <= RegisterFile[rs1Id(FD_instr)];
-                DE_rs2 <= RegisterFile[rs2Id(FD_instr)];
+                DE_instr <= (E_flush | FD_nop) ? NOP : FD_instr;
         end
+
+        if (E_flush)
+                DE_instr <= NOP;
+
+        DE_rs1 <= RegisterFile[rs1Id(FD_instr)];
+        DE_rs2 <= RegisterFile[rs2Id(FD_instr)];
+
+        if (wbEnable) 
+                RegisterFile[wbRdId] <= wbData;
 end
 
 always @(posedge clk) begin
-        if (wbEnable) 
-                RegisterFile[wbRdId] <= wbData;
 end
 
 /*----------------------------------------------------------------------------*/
@@ -280,18 +340,16 @@ wire [31:0] E_addr =
         isStore(DE_instr) ? DE_rs1 + Simm(DE_instr) : DE_rs1 + Iimm(DE_instr);
 
 always @(posedge clk) begin
-        if (state[E_BIT]) begin
-                EM_PC <= DE_PC;
-                EM_instr <= DE_instr;
-                EM_rs2 <= DE_rs2;
-                EM_Eresult <= E_result;
-                EM_addr <= E_addr;
-        end
+        EM_PC <= DE_PC;
+        EM_instr <= DE_instr;
+        EM_rs2 <= DE_rs2;
+        EM_Eresult <= E_result;
+        EM_addr <= E_addr;
 end
 
 assign HALT = !reset & isEBREAK(DE_instr);
 assign jumpBranchAddr = E_jumpBranchAddr;
-assign jumpOrBranch = E_jumpOrBranch & state[M_BIT];
+assign jumpOrBranch = E_jumpOrBranch;
 
 /*----------------------------------------------------------------------------*/
 reg [31:0] EM_PC;
@@ -340,11 +398,11 @@ wire M_isIO  = EM_addr[22];
 wire M_isRAM = !M_isIO;
 
 assign IO_memAddr  = EM_addr;
-assign IO_memWr    = state[M_BIT] & isStore(EM_instr) && M_isIO;
+assign IO_memWr    = isStore(EM_instr) && M_isIO;
 assign IO_memWData = EM_rs2;
 
 wire [3:0] M_wmask = 
-        {4{isStore(EM_instr) & M_isRAM & state[M_BIT]}} & M_storeMask;
+        {4{isStore(EM_instr) & M_isRAM}} & M_storeMask;
 
 reg [31:0] DATARAM [0:16383];
 
@@ -376,19 +434,17 @@ end
 
 /*------------------------------------------------*/
 always @(posedge clk) begin
-        if (state[M_BIT]) begin
-                MW_PC <= EM_PC;
-                MW_instr <= EM_instr;
-                MW_Eresult <= EM_Eresult;
-                MW_IOresult <= IO_memRData;
-                MW_addr <= EM_addr;
-                MW_CSRresult <= M_csrData;
+        MW_PC <= EM_PC;
+        MW_instr <= EM_instr;
+        MW_Eresult <= EM_Eresult;
+        MW_IOresult <= IO_memRData;
+        MW_addr <= EM_addr;
+        MW_CSRresult <= M_csrData;
 
-                if (reset)
-                        instret <= 0;
-                else
-                        instret <= instret + 1;
-        end
+        if (reset)
+                instret <= 0;
+        else if (MW_instr != NOP)
+                instret <= instret + 1;
 end
 
 /*----------------------------------------------------------------------------*/
@@ -439,6 +495,44 @@ assign wbEnable =
 assign wbRdId = rdId(MW_instr);
 
 /*----------------------------------------------------------------------------*/
+
+`ifdef BENCH
+`ifdef VERBOSE
+        always @(posedge clk) begin
+                if(!reset) begin
+                        $write("[F] PC=%h ", F_PC);
+                        if(jumpOrBranch) $write(" PC <- 0x%0h",jumpBranchAddr);
+                        $write("\n");
+
+                        $write("[D] PC=%h ", FD_PC);
+                        $write("[%s%s] ",rs1Hazard?"*":" ",rs2Hazard?"*":" ");
+                        riscv_disasm(FD_nop ? NOP : FD_instr,FD_PC);
+                        $write("\n");
+
+                        $write("[E] PC=%h ", DE_PC);
+                        $write("     ");
+                        riscv_disasm(DE_instr,DE_PC);
+                        if(DE_instr != NOP) begin
+                                $write("  rs1=0x%h  rs2=0x%h  ",DE_rs1, DE_rs2);
+                        end
+                        $write("\n");
+
+                        $write("[M] PC=%h ", EM_PC);
+                        $write("     ");
+                        riscv_disasm(EM_instr,EM_PC);
+                        $write("\n");
+
+                        $write("[W] PC=%h ", MW_PC);
+                        $write("     ");
+                        riscv_disasm(MW_instr,MW_PC);
+                        if(wbEnable) $write("    x%0d <- 0x%0h",rdId(MW_instr),wbData);
+                        $write("\n");
+
+                        $display("");
+                end
+        end
+`endif
+`endif
 
 endmodule
 
