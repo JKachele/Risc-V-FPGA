@@ -104,6 +104,7 @@ Clockworks CW(
         .resetn(reset)
 );
 
+/* verilator lint_off PINMISSING */
 // Fast clock for SSeg Display Scanning
 Clockworks #(
         .SLOW(15)
@@ -112,6 +113,7 @@ Clockworks #(
         .RESET(RESET),
         .clk(ssegClk)
 );
+/* verilator lint_on PINMISSING */
 
 endmodule
 

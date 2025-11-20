@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include "../obj_dir/VSOC.h"
-#include "../obj_dir/VSOC___024root.h"
+#include "VSOC.h"
+#include "VSOC___024root.h"
 #include "testbench.h"
 #include "uartsim.h"
 
@@ -22,10 +22,16 @@ public:
         }
 
         virtual bool done(void) {
+                static int clocksAfterHalt = 0;
                 if (m_core->rootp->SOC__DOT__CPU__DOT__HALT == 1)
+                        clocksAfterHalt++;
+
+                // Exit 1 clock after halt to allow simulation to finish
+                if (clocksAfterHalt > 1)
                         return true;
-                else
-                        return TESTB<VSOC>::done();
+
+                // Default
+                return TESTB<VSOC>::done();
         }
 };
 

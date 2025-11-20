@@ -33,7 +33,7 @@ initial begin
         DIGITS[15] = 8'b10001110;
 end
 
-wire [3:0] numDigits [0:15];
+wire [3:0] numDigits [0:7];
 assign numDigits[0] = num[31:28];
 assign numDigits[1] = num[27:24];
 assign numDigits[2] = num[23:20];

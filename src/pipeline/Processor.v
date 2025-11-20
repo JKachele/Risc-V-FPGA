@@ -5,6 +5,7 @@
  *Author--------Justin Kachele
  *Created-------Monday Nov 17, 2025 20:09:17 UTC
  ************************************************/
+/* verilator lint_off WIDTH */
 // `define VERBOSE
 
 module Processor(
@@ -123,6 +124,20 @@ function readsRs2;
         readsRs2 = isALUR(I) || isBranch(I) || isStore(I);
 endfunction
 
+function [1:0] incdec_sat;
+        input [1:0] prev;
+        input dir;
+        incdec_sat = 
+                {dir, prev} == 3'b000 ? 2'b00 :
+                {dir, prev} == 3'b001 ? 2'b00 :
+                {dir, prev} == 3'b010 ? 2'b01 :
+                {dir, prev} == 3'b011 ? 2'b10 :		
+                {dir, prev} == 3'b100 ? 2'b01 :
+                {dir, prev} == 3'b101 ? 2'b10 :
+                {dir, prev} == 3'b110 ? 2'b11 :
+                2'b11 ;
+endfunction;
+
 /******************************************************************************
  --------------------------------REGISTER FILE---------------------------------
  ******************************************************************************/
@@ -212,7 +227,17 @@ reg        FD_nop;
  ******************************************************************************/
 
 /*----------------BRANCH PREDICTION---------------*/
-wire D_predictBranch = FD_instr[31];
+localparam BP_ADDR_BITS = 12;
+localparam BHT_SIZE = 1 << BP_ADDR_BITS;
+reg [1:0] BHT[BHT_SIZE-1:0]; // Branch History Table
+
+localparam BH_BITS = 9;
+reg [BH_BITS-1:0] branchHist;
+
+wire [BP_ADDR_BITS-1:0] D_bhtIndex =
+        FD_PC[BP_ADDR_BITS+1:2] ^ (branchHist << (BP_ADDR_BITS - BH_BITS));
+
+wire D_predictBranch = BHT[D_bhtIndex][1];
 
 wire D_jumpOrBranchNow = !FD_nop &&
         (isJAL(FD_instr) || (isBranch(FD_instr) && D_predictBranch));
@@ -226,6 +251,7 @@ always @(posedge clk) begin
                 DE_PC <= FD_PC;
                 DE_instr <= (E_flush | FD_nop) ? NOP : FD_instr;
                 DE_predictBranch <= D_predictBranch;
+                DE_bhtIndex <= D_bhtIndex;
         end
 
         if (E_flush)
@@ -244,6 +270,7 @@ reg  [31:0] DE_instr;
 wire [31:0] DE_rs1;
 wire [31:0] DE_rs2;
 reg         DE_predictBranch;
+reg [BP_ADDR_BITS-1:0] DE_bhtIndex;
 /******************************************************************************
  ---------------------------------EXECUTE UNIT--------------------------------*
  ******************************************************************************/
@@ -368,6 +395,11 @@ always @(posedge clk) begin
         EM_addr <= E_addr;
         EM_jumpBranchAddr <= E_jumpBranchAddr;
         EM_jumpOrBranchNow <= E_jumpOrBranch;
+
+        if (isBranch(DE_instr)) begin
+                branchHist <= {E_takeBranch, branchHist[BH_BITS-1:1]};
+                BHT[DE_bhtIndex] <= incdec_sat(BHT[DE_bhtIndex], E_takeBranch);
+        end
 end
 
 assign HALT = !reset & isEBREAK(DE_instr);
@@ -401,20 +433,20 @@ reg [3:0] M_storeMask;
 always @(*) begin
         if (M_is8) begin
                 if (EM_addr[1:0] == 2'b11)
-                        M_storeMask <= 4'b1000;
+                        M_storeMask = 4'b1000;
                 else if (EM_addr[1:0] == 2'b10)
-                        M_storeMask <= 4'b0100;
+                        M_storeMask = 4'b0100;
                 else if (EM_addr[1:0] == 2'b01)
-                        M_storeMask <= 4'b0010;
+                        M_storeMask = 4'b0010;
                 else
-                        M_storeMask <= 4'b0001;
+                        M_storeMask = 4'b0001;
         end else if (M_isH) begin
                 if (EM_addr[1])
-                        M_storeMask <= 4'b1100;
+                        M_storeMask = 4'b1100;
                 else
-                        M_storeMask <= 4'b0011;
+                        M_storeMask = 4'b0011;
         end else begin
-                M_storeMask <= 4'b1111;
+                M_storeMask = 4'b1111;
         end
 end
 
@@ -501,11 +533,11 @@ wire W_loadSign = !W_funct3[2] & (W_loadByte ? W_memByte[7] : W_memHalf[15]);
 reg [31:0] W_Mresult;
 always @(*) begin
         if(W_loadByte)
-                W_Mresult <= {{24{W_loadSign}}, W_memByte};
+                W_Mresult = {{24{W_loadSign}}, W_memByte};
         else if(W_loadHalf)
-                W_Mresult <= {{16{W_loadSign}}, W_memHalf};
+                W_Mresult = {{16{W_loadSign}}, W_memHalf};
         else
-                W_Mresult <= MW_Mdata;
+                W_Mresult = MW_Mdata;
 end
 
 /*----------------REGISTER WRITEBACK--------------*/
@@ -519,6 +551,41 @@ assign wbEnable =
 assign wbRdId = rdId(MW_instr);
 
 /*----------------------------------------------------------------------------*/
+`ifdef BENCH
+        integer nbBranch = 0;
+        integer nbPredictHit = 0;
+        integer nbJAL  = 0;
+        integer nbJALR = 0;
+        always @(posedge clk) begin
+                if(!reset) begin
+                        if(isBranch(DE_instr)) begin
+                                nbBranch <= nbBranch + 1;
+                                if(E_takeBranch == DE_predictBranch) begin
+                                        nbPredictHit <= nbPredictHit + 1;
+                                end
+                        end
+                        if(isJAL(DE_instr)) begin
+                                nbJAL <= nbJAL + 1;
+                        end
+                        if(isJALR(DE_instr)) begin
+                                nbJALR <= nbJALR + 1;
+                        end
+                end
+        end
+        always @(posedge clk) begin
+                if(HALT) begin
+                        $display("\n\nSimulated processor's report");
+                        $display("----------------------------");
+                        $display("Branch hits= %3.3f\%%",
+                                nbPredictHit*100.0/nbBranch	 );
+                        $display("CPI        = %3.3f",(cycle*1.0)/(instret*1.0));
+                        $display("Instr. mix = (Branch:%3.3f\%% JAL:%3.3f\%% JALR:%3.3f\%%)",
+                                nbBranch*100.0/instret,
+                                nbJAL*100.0/instret,
+                                nbJALR*100.0/instret);
+                end
+        end
+`endif
 
 `ifdef BENCH
 `ifdef VERBOSE
@@ -559,4 +626,5 @@ assign wbRdId = rdId(MW_instr);
 `endif
 
 endmodule
+/* verilator lint_on WIDTH */
 

@@ -23,15 +23,15 @@ XDC := src/Extern/NexusA7.xdc
 # Simulation
 TB := verilator
 TBFLAGS := -DBENCH -Wno-fatal -Isrc -Isrc/pipeline -Isrc/Extern
-TBFLAGS += --top-module $(TOP) --trace --build -cc -exe
+TBFLAGS += --top-module $(TOP) --trace -cc -exe #--build
 TBSRC := $(wildcard tb/*.cpp)
 
 BIN_DIR := bin
 BUILD_DIR := build
 
 # Firmware
-SRC := firmware/startPipeline.S firmware/raystones.c
-SRC += $(wildcard firmware/*/*.S) $(wildcard firmware/*/*.c) 
+SRC := firmware/startPipeline.S firmware/dhrystones.c
+SRC += $(wildcard firmware/libs/*.S) $(wildcard firmware/libs/*.c) 
 OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
 LDSCRIPT = firmware/ram.ld
 
@@ -68,7 +68,8 @@ $(BUILD_DIR)/%.c.o: %.c
 sim: $(ROM) $(RAM)
 	cd obj_dir; rm -f *.cpp *.o *.a *.vcd V$(TOP)
 	$(TB) $(TBFLAGS) $(TBSRC) $(VSRC)
-	cd obj_dir && ./V$(TOP)
+	cd obj_dir; make -f V$(TOP).mk -s
+	cd obj_dir; ./V$(TOP)
 
 all: $(BIN_DIR) $(ROM) $(RAM)
 	cd tcl; vivado -mode tcl -source build.tcl
