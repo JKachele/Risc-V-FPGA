@@ -60,7 +60,7 @@ function [6:0] funct7; input [31:0] I; funct7 = I[31:25]; endfunction
 function [4:0]  rs1Id; input [31:0] I; rs1Id = I[19:15]; endfunction
 function [4:0]  rs2Id; input [31:0] I; rs2Id = I[24:20]; endfunction
 function [4:0]  rdId;  input [31:0] I; rdId  = I[11:7];  endfunction
-function [11:0] csrID; input [31:0] I; csrID = I[31:20]; endfunction
+function [11:0] csrId; input [31:0] I; csrId = I[31:20]; endfunction
 
 // Immediate Values
 function [31:0] Iimm;
@@ -161,15 +161,12 @@ wire E_flush;
 wire F_stall;
 wire D_stall;
 
-wire rs1Hazard = !FD_nop && readsRs1(FD_instr) && rs1Id(FD_instr) != 0 && (
-        (writesRd(DE_instr) && rs1Id(FD_instr) == rdId(DE_instr)) ||
-        (writesRd(EM_instr) && rs1Id(FD_instr) == rdId(EM_instr)) ) ;
+wire rs1Hazard = readsRs1(FD_instr) && (rs1Id(FD_instr) == rdId(DE_instr));
+wire rs2Hazard = readsRs2(FD_instr) && (rs2Id(FD_instr) == rdId(DE_instr));
 
-wire rs2Hazard = !FD_nop && readsRs2(FD_instr) && rs2Id(FD_instr) != 0 && (
-        (writesRd(DE_instr) && rs2Id(FD_instr) == rdId(DE_instr)) ||
-        (writesRd(EM_instr) && rs2Id(FD_instr) == rdId(EM_instr)) ) ;
-
-wire dataHazard = rs1Hazard || rs2Hazard;
+wire dataHazard = !FD_nop &&
+        (isLoad(DE_instr)||isCSR(DE_instr)) &&
+        (rs1Hazard || rs2Hazard);
 
 assign F_stall = dataHazard | HALT;
 assign D_stall = dataHazard | HALT;
@@ -242,10 +239,31 @@ wire [31:0] DE_rs2 = RegisterFile[rs2Id(DE_instr)];
  ---------------------------------EXECUTE UNIT--------------------------------*
  ******************************************************************************/
 
+/*---------------REGISTER FORWARDING--------------*/
+// Forward from End of Execute Unit
+wire EMfwd_rs1 = rdId(EM_instr) != 0 && writesRd(EM_instr) &&
+        (rdId(EM_instr) == rs1Id(DE_instr));
+
+wire EMfwd_rs2 = rdId(EM_instr) != 0 && writesRd(EM_instr) &&
+        (rdId(EM_instr) == rs2Id(DE_instr));
+
+// Forward from End of Memory Unit
+wire EWfwd_rs1 = rdId(MW_instr) != 0 && writesRd(MW_instr) &&
+        (rdId(MW_instr) == rs1Id(DE_instr));
+
+wire EWfwd_rs2 = rdId(MW_instr) != 0 && writesRd(MW_instr) &&
+        (rdId(MW_instr) == rs2Id(DE_instr));
+
+wire [31:0] E_rs1 = EMfwd_rs1 ? EM_Eresult :
+        EWfwd_rs1 ? wbData : DE_rs1;
+
+wire [31:0] E_rs2 = EMfwd_rs2 ? EM_Eresult :
+        EWfwd_rs2 ? wbData : DE_rs2;
+
 /*----------------------ALU-----------------------*/
-wire [31:0] E_aluIn1 = DE_rs1;
+wire [31:0] E_aluIn1 = E_rs1;
 wire [31:0] E_aluIn2 =
-        isALUR(DE_instr) | isBranch(DE_instr) ? DE_rs2 : Iimm(DE_instr);
+        isALUR(DE_instr) | isBranch(DE_instr) ? E_rs2 : Iimm(DE_instr);
 
 // Add Subtract
 wire [31:0] E_aluPlus = E_aluIn1 + E_aluIn2;
@@ -332,12 +350,12 @@ wire [31:0] E_result =
 /*------------------------------------------------*/
 // Memory access address
 wire [31:0] E_addr =
-        isStore(DE_instr) ? DE_rs1 + Simm(DE_instr) : DE_rs1 + Iimm(DE_instr);
+        isStore(DE_instr) ? E_rs1 + Simm(DE_instr) : E_rs1 + Iimm(DE_instr);
 
 always @(posedge clk) begin
         EM_PC <= DE_PC;
         EM_instr <= DE_instr;
-        EM_rs2 <= DE_rs2;
+        EM_rs2 <= E_rs2;
         EM_Eresult <= E_result;
         EM_addr <= E_addr;
 end
@@ -417,13 +435,13 @@ end
 /*-----------------------CSR----------------------*/
 reg [31:0] M_csrData;
 always @(*) begin
-        if (csrID(EM_instr) == CYCLE_ID)
+        if (csrId(EM_instr) == CYCLE_ID)
                 M_csrData = cycle[31:0];
-        else if (csrID(EM_instr) == CYCLEH_ID)
+        else if (csrId(EM_instr) == CYCLEH_ID)
                 M_csrData = cycle[63:32];
-        else if (csrID(EM_instr) == INSTRET_ID)
+        else if (csrId(EM_instr) == INSTRET_ID)
                 M_csrData = instret[31:0];
-        else // if (csrID(EM_instr) == INSTRETH_ID)
+        else // if (csrId(EM_instr) == INSTRETH_ID)
                 M_csrData = instret[63:32];
 end
 

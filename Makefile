@@ -30,7 +30,7 @@ BIN_DIR := bin
 BUILD_DIR := build
 
 # Firmware
-SRC := firmware/startPipeline.S firmware/testRdcycle.c
+SRC := firmware/startPipeline.S firmware/raystones.c
 SRC += $(wildcard firmware/*/*.S) $(wildcard firmware/*/*.c) 
 OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
 LDSCRIPT = firmware/ram.ld

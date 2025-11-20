@@ -65,9 +65,9 @@ static int bench_run=0;
 // Replace with your own stuff to initialize graphics
 static inline void graphics_init() {
         printf("\033[48;5;16m"   // set background color black
-                        "\033[38;5;15m"   // set foreground color white	   
-                        "\033[H"          // home
-                        "\033[2J");       // clear screen
+                        "\033[38;5;15m"); // set foreground color white	   
+                        // "\033[H"          // home
+                        // "\033[2J");       // clear screen
 }
 
 // Replace with your own stuff to terminate graphics or leave empty
@@ -508,19 +508,19 @@ int main() {
         init_scene();
 
         graphics_init();
-        IO_OUT(IO_LEDS,5);
+        // IO_OUT(IO_LEDS,5);
         bench_run = 1;
         graphics_width  = 40;
         graphics_height = 20;
         printf("Running without graphic output (for accurate measurement)...\n");
         render(spheres, nb_spheres, lights, nb_lights);
-        IO_OUT(IO_LEDS,10);
+        // IO_OUT(IO_LEDS,10);
 
         bench_run = 0;
         graphics_width = 120;
         graphics_height = 60;
         render(spheres, nb_spheres, lights, nb_lights);
-        IO_OUT(IO_LEDS,15);
+        // IO_OUT(IO_LEDS,15);
         graphics_terminate();
 
         return 0;
