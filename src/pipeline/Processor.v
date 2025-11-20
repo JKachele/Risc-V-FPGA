@@ -178,11 +178,12 @@ assign E_flush = E_jumpOrBranch | dataHazard;
  ----------------------------------FETCH UNIT----------------------------------
  ******************************************************************************/
 
-reg [31:0] F_PC;
+reg [31:0] PC;
 
-// Jump signals from Execute Unit
-wire [31:0] jumpBranchAddr;
-wire        jumpOrBranch;
+wire [31:0] F_PC =
+        D_jumpOrBranchNow  ? D_jumpBranchAddr  :
+        EM_jumpOrBranchNow ? EM_jumpBranchAddr :
+                             PC;
 
 reg [31:0] PROGROM [0:16383];
 initial begin $readmemh("../bin/ROM.hex",PROGROM); end
@@ -191,17 +192,13 @@ always @(posedge clk) begin
         if (!F_stall) begin
                 FD_instr <= PROGROM[F_PC[15:2]];
                 FD_PC <= F_PC;
-                F_PC <= F_PC + 4;
-        end
-
-        if (jumpOrBranch) begin
-                F_PC <= jumpBranchAddr;
+                PC <= F_PC + 4;
         end
 
         FD_nop <= D_flush | reset;
 
         if (reset) begin
-                F_PC <= 0;
+                PC <= 0;
         end
 
 end
@@ -214,10 +211,21 @@ reg        FD_nop;
  ---------------------------------DECODE UNIT----------------------------------
  ******************************************************************************/
 
+/*----------------BRANCH PREDICTION---------------*/
+wire D_predictBranch = FD_instr[31];
+
+wire D_jumpOrBranchNow = !FD_nop &&
+        (isJAL(FD_instr) || (isBranch(FD_instr) && D_predictBranch));
+
+wire [31:0] D_jumpBranchAddr = 
+        FD_PC + (isJAL(FD_instr) ? Jimm(FD_instr) : Bimm(FD_instr));
+
+/*------------------------------------------------*/
 always @(posedge clk) begin
         if (!D_stall) begin
                 DE_PC <= FD_PC;
                 DE_instr <= (E_flush | FD_nop) ? NOP : FD_instr;
+                DE_predictBranch <= D_predictBranch;
         end
 
         if (E_flush)
@@ -227,14 +235,15 @@ always @(posedge clk) begin
                 RegisterFile[wbRdId] <= wbData;
 end
 
-always @(posedge clk) begin
-end
+assign DE_rs1 = RegisterFile[rs1Id(DE_instr)];
+assign DE_rs2 = RegisterFile[rs2Id(DE_instr)];
 
 /*----------------------------------------------------------------------------*/
 reg  [31:0] DE_PC;
 reg  [31:0] DE_instr;
-wire [31:0] DE_rs1 = RegisterFile[rs1Id(DE_instr)];
-wire [31:0] DE_rs2 = RegisterFile[rs2Id(DE_instr)];
+wire [31:0] DE_rs1;
+wire [31:0] DE_rs2;
+reg         DE_predictBranch;
 /******************************************************************************
  ---------------------------------EXECUTE UNIT--------------------------------*
  ******************************************************************************/
@@ -330,15 +339,14 @@ always @(*) begin
         endcase
 end
 
+// Flush only for JALR (Need RS1) or if the branch prediction was wrong
 wire E_jumpOrBranch = (
-        isJAL(DE_instr)  ||
         isJALR(DE_instr) ||
-        (isBranch(DE_instr) && E_takeBranch)
+        (isBranch(DE_instr) && (E_takeBranch ^ DE_predictBranch))
 );
 
 wire [31:0] E_jumpBranchAddr = 
-        isBranch(DE_instr) ? DE_PC + Bimm(DE_instr) :
-        isJAL(DE_instr)    ? DE_PC + Jimm(DE_instr) :
+        isBranch(DE_instr) ? DE_PC + (DE_predictBranch ? 4 : Bimm(DE_instr)) :
         /* JALR */           {E_aluPlus[31:1], 1'b0};
 
 wire [31:0] E_result = 
@@ -358,11 +366,11 @@ always @(posedge clk) begin
         EM_rs2 <= E_rs2;
         EM_Eresult <= E_result;
         EM_addr <= E_addr;
+        EM_jumpBranchAddr <= E_jumpBranchAddr;
+        EM_jumpOrBranchNow <= E_jumpOrBranch;
 end
 
 assign HALT = !reset & isEBREAK(DE_instr);
-assign jumpBranchAddr = E_jumpBranchAddr;
-assign jumpOrBranch = E_jumpOrBranch;
 
 /*----------------------------------------------------------------------------*/
 reg [31:0] EM_PC;
@@ -370,6 +378,9 @@ reg [31:0] EM_instr;
 reg [31:0] EM_rs2;
 reg [31:0] EM_Eresult;
 reg [31:0] EM_addr;
+reg [31:0] EM_jumpBranchAddr;
+reg        EM_jumpOrBranchNow;
+
 /******************************************************************************
  ------------------------------MEMORY ACCESS UNIT-----------------------------*
  ******************************************************************************/
