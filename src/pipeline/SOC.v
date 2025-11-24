@@ -28,12 +28,12 @@ wire [31:0] IO_memWData;
 wire        IO_memWr;
 
 Processor CPU(
-        .clk(clk),
-        .reset(reset),
-        .IO_memAddr(IO_memAddr),
-        .IO_memRData(IO_memRData),
-        .IO_memWData(IO_memWData),
-        .IO_memWr(IO_memWr)
+        .clk_i(clk),
+        .reset_i(reset),
+        .IO_memAddr_o(IO_memAddr),
+        .IO_memRData_i(IO_memRData),
+        .IO_memWData_o(IO_memWData),
+        .IO_memWr_o(IO_memWr)
 );
 
 wire [13:0] IO_wordAddr = IO_memAddr[15:2];

@@ -9,17 +9,18 @@
 // `define VERBOSE
 
 module Processor(
-        input  wire clk,
-        input  wire reset,
-        output wire [31:0] IO_memAddr,
-        input  wire [31:0] IO_memRData,
-        output wire [31:0] IO_memWData,
-        output wire        IO_memWr
+        input  wire clk_i,
+        input  wire reset_i,
+        output wire [31:0] IO_memAddr_o,
+        input  wire [31:0] IO_memRData_i,
+        output wire [31:0] IO_memWData_o,
+        output wire        IO_memWr_o
 );
 
 `include "../Extern/riscv_disassembly.v"
 
 /*
+ * Used RISC-V ISM Volume I: Version 20250508, Ch. 35, Page 609
  * The 11 RISC-V opcodes
  * ----------------------------------
  * ALUreg  // rd <- rs1 OP rs2
@@ -34,109 +35,6 @@ module Processor(
  * Fence   // special
  * SYSTEM  // special
  */
-
-/******************************************************************************
- -------------------------------HELPER FUNCTIONS-------------------------------
- ******************************************************************************/
-
-// Used RISC-V ISM Version 20250508, Ch. 35, Page 609
-// 11 RISC-V OpCodes
-function isLUI;    input [31:0] I; isLUI    = (I[6:0] == 7'b0110111); endfunction
-function isAUIPC;  input [31:0] I; isAUIPC  = (I[6:0] == 7'b0010111); endfunction
-function isJAL;    input [31:0] I; isJAL    = (I[6:0] == 7'b1101111); endfunction
-function isJALR;   input [31:0] I; isJALR   = (I[6:0] == 7'b1100111); endfunction
-function isBranch; input [31:0] I; isBranch = (I[6:0] == 7'b1100011); endfunction
-function isLoad;   input [31:0] I; isLoad   = (I[6:0] == 7'b0000011); endfunction
-function isStore;  input [31:0] I; isStore  = (I[6:0] == 7'b0100011); endfunction
-function isALUI;   input [31:0] I; isALUI   = (I[6:0] == 7'b0010011); endfunction
-function isALUR;   input [31:0] I; isALUR   = (I[6:0] == 7'b0110011); endfunction
-function isFENCE;  input [31:0] I; isFENCE  = (I[6:0] == 7'b0001111); endfunction
-function isSYS;    input [31:0] I; isSYS    = (I[6:0] == 7'b1110011); endfunction
-
-// Instruction Functions
-function [2:0] funct3; input [31:0] I; funct3 = I[14:12]; endfunction
-function [6:0] funct7; input [31:0] I; funct7 = I[31:25]; endfunction
-
-// Source and dest registers
-function [4:0]  rs1Id; input [31:0] I; rs1Id = I[19:15]; endfunction
-function [4:0]  rs2Id; input [31:0] I; rs2Id = I[24:20]; endfunction
-function [4:0]  rdId;  input [31:0] I; rdId  = I[11:7];  endfunction
-function [11:0] csrId; input [31:0] I; csrId = I[31:20]; endfunction
-
-// Immediate Values
-function [31:0] Iimm;
-        input [31:0] I;
-        Iimm={{21{I[31]}}, I[30:20]};
-endfunction
-
-function [31:0] Simm;
-        input [31:0] I;
-        Simm={{21{I[31]}}, I[30:25],I[11:7]};
-endfunction
-
-function [31:0] Bimm;
-        input [31:0] I;
-        Bimm={{20{I[31]}}, I[7],I[30:25],I[11:8],1'b0};
-endfunction
-
-function [31:0] Uimm;
-        input [31:0] I;
-        Uimm={I[31],       I[30:12], {12{1'b0}}};
-endfunction
-
-function [31:0] Jimm;
-        input [31:0] I;
-        Jimm={{12{I[31]}}, I[19:12],I[20],I[30:21],1'b0};
-endfunction
-
-// System Instructions
-function isEBREAK;
-        input [31:0] I;
-        isEBREAK = isSYS(I) & (funct3(I) == 3'b000) & (Iimm(I) == 12'h001);
-endfunction
-
-function isCSR;
-        input [31:0] I;
-        isCSR = isSYS(I) & ((funct3(I) != 3'b000) & (funct3(I) != 3'b100));
-endfunction
-
-// Flip a 32 bit word. Used by the shifter
-function [31:0] flip32;
-        input [31:0] x;
-        flip32 = {x[ 0], x[ 1], x[ 2], x[ 3], x[ 4], x[ 5], x[ 6], x[ 7],
-                x[ 8], x[ 9], x[10], x[11], x[12], x[13], x[14], x[15],
-                x[16], x[17], x[18], x[19], x[20], x[21], x[22], x[23],
-                x[24], x[25], x[26], x[27], x[28], x[29], x[30], x[31]};
-endfunction
-
-function writesRd;
-        input [31:0] I;
-        writesRd = !isStore(I) && !isBranch(I);
-endfunction
-
-function readsRs1;
-        input [31:0] I;
-        readsRs1 = !(isJAL(I) || isAUIPC(I) || isLUI(I));
-endfunction
-
-function readsRs2;
-        input [31:0] I;
-        readsRs2 = isALUR(I) || isBranch(I) || isStore(I);
-endfunction
-
-function [1:0] incdec_sat;
-        input [1:0] prev;
-        input dir;
-        incdec_sat = 
-                {dir, prev} == 3'b000 ? 2'b00 :
-                {dir, prev} == 3'b001 ? 2'b00 :
-                {dir, prev} == 3'b010 ? 2'b01 :
-                {dir, prev} == 3'b011 ? 2'b10 :		
-                {dir, prev} == 3'b100 ? 2'b01 :
-                {dir, prev} == 3'b101 ? 2'b10 :
-                {dir, prev} == 3'b110 ? 2'b11 :
-                2'b11 ;
-endfunction;
 
 /******************************************************************************
  --------------------------------REGISTER FILE---------------------------------
@@ -158,7 +56,7 @@ localparam CYCLEH_ID    = 12'hC80;
 localparam INSTRET_ID   = 12'hC02;
 localparam INSTRETH_ID  = 12'hC82;
 
-always @(posedge clk) begin
+always @(posedge clk_i) begin
         cycle <= cycle + 1;
 end
 
@@ -176,18 +74,18 @@ wire E_flush;
 wire F_stall;
 wire D_stall;
 
-wire rs1Hazard = readsRs1(FD_instr) && (rs1Id(FD_instr) == rdId(DE_instr));
-wire rs2Hazard = readsRs2(FD_instr) && (rs2Id(FD_instr) == rdId(DE_instr));
+wire rs1Hazard = D_readsRs1 && (D_rs1Id == DE_rdId);
+wire rs2Hazard = D_readsRs2 && (D_rs2Id == DE_rdId);
 
 wire dataHazard = !FD_nop &&
-        (isLoad(DE_instr)||isCSR(DE_instr)) &&
+        (DE_isLoad || DE_isCSR) &&
         (rs1Hazard || rs2Hazard);
 
 assign F_stall = dataHazard | HALT;
 assign D_stall = dataHazard | HALT;
 
-assign D_flush = E_jumpOrBranch;
-assign E_flush = E_jumpOrBranch | dataHazard;
+assign D_flush = E_correctPC;
+assign E_flush = E_correctPC | dataHazard;
 
 /******************************************************************************
  ----------------------------------FETCH UNIT----------------------------------
@@ -196,23 +94,23 @@ assign E_flush = E_jumpOrBranch | dataHazard;
 reg [31:0] PC;
 
 wire [31:0] F_PC =
-        D_jumpOrBranchNow  ? D_jumpBranchAddr  :
-        EM_jumpOrBranchNow ? EM_jumpBranchAddr :
+        D_predictPC  ? D_PCprediction  :
+        EM_correctPC ? EM_PCcorrection :
                              PC;
 
 reg [31:0] PROGROM [0:16383];
 initial begin $readmemh("../bin/ROM.hex",PROGROM); end
 
-always @(posedge clk) begin
+always @(posedge clk_i) begin
         if (!F_stall) begin
                 FD_instr <= PROGROM[F_PC[15:2]];
                 FD_PC <= F_PC;
                 PC <= F_PC + 4;
         end
 
-        FD_nop <= D_flush | reset;
+        FD_nop <= D_flush | reset_i;
 
-        if (reset) begin
+        if (reset_i) begin
                 PC <= 0;
         end
 
@@ -225,6 +123,51 @@ reg        FD_nop;
 /******************************************************************************
  ---------------------------------DECODE UNIT----------------------------------
  ******************************************************************************/
+
+/*--------------INSTRUCTION DECODING--------------*/
+// 11 RISC-V OpCodes
+// bits [1:0] are always 00 for all opcodes
+wire D_isLUI      = (FD_instr[6:2] == 5'b01101);
+wire D_isAUIPC    = (FD_instr[6:2] == 5'b00101);
+wire D_isJAL      = (FD_instr[6:2] == 5'b11011);
+wire D_isJALR     = (FD_instr[6:2] == 5'b11001);
+wire D_isBranch   = (FD_instr[6:2] == 5'b11000);
+wire D_isLoad     = (FD_instr[6:2] == 5'b00000);
+wire D_isStore    = (FD_instr[6:2] == 5'b01000);
+wire D_isALUI     = (FD_instr[6:2] == 5'b00100);
+wire D_isALUR     = (FD_instr[6:2] == 5'b01100);
+wire D_isFENCE    = (FD_instr[6:2] == 5'b00011);
+wire D_isSYS      = (FD_instr[6:2] == 5'b11100);
+
+// Instruction Functions
+wire [2:0] D_funct3 = FD_instr[14:12];
+wire [6:0] D_funct7 = FD_instr[31:25];
+
+// Source and dest registers
+wire [4:0] D_rdId  = FD_instr[11:7];
+wire [4:0] D_rs1Id = FD_instr[19:15];
+wire [4:0] D_rs2Id = FD_instr[24:20];
+
+// Immediate Values
+wire [31:0] D_Iimm =
+        {{21{FD_instr[31]}}, FD_instr[30:20]};
+wire [31:0] D_Simm =
+        {{21{FD_instr[31]}}, FD_instr[30:25],FD_instr[11:7]};
+wire [31:0] D_Bimm =
+        {{20{FD_instr[31]}}, FD_instr[7],FD_instr[30:25],FD_instr[11:8],1'b0};
+wire [31:0] D_Uimm =
+        {FD_instr[31], FD_instr[30:12], {12{1'b0}}};
+wire [31:0] D_Jimm =
+        {{12{FD_instr[31]}}, FD_instr[19:12],FD_instr[20],FD_instr[30:21],1'b0};
+
+wire D_isEBREAK = D_isSYS & (D_funct3 == 3'b000) & FD_instr[20] & ~FD_instr[22];
+
+wire D_isCSR = D_isSYS & ((D_funct3 != 3'b000) & (D_funct3 != 3'b100));
+wire [11:0] D_csrId = FD_instr[31:20];
+
+wire D_readsRs1 = !(D_isJAL || D_isLUI || D_isAUIPC);
+
+wire D_readsRs2 = (FD_instr[5] && (FD_instr[3:2] == 2'b00));
 
 /*----------------BRANCH PREDICTION---------------*/
 localparam BP_ADDR_BITS = 12;
@@ -239,69 +182,145 @@ wire [BP_ADDR_BITS-1:0] D_bhtIndex =
 
 wire D_predictBranch = BHT[D_bhtIndex][1];
 
-wire D_jumpOrBranchNow = !FD_nop &&
-        (isJAL(FD_instr) || (isBranch(FD_instr) && D_predictBranch));
+/*--------------RETURN ADDRESS STACK--------------*/
+// reg [31:0] RAS_0;
+// reg [31:0] RAS_1;
+// reg [31:0] RAS_2;
+// reg [31:0] RAS_3;
 
-wire [31:0] D_jumpBranchAddr = 
-        FD_PC + (isJAL(FD_instr) ? Jimm(FD_instr) : Bimm(FD_instr));
+wire D_predictPC = !FD_nop &&
+        (D_isJAL || (D_isBranch && D_predictBranch));
+
+wire [31:0] D_PCprediction = 
+        FD_PC + (D_isJAL ? D_Jimm : D_Bimm);
 
 /*------------------------------------------------*/
-always @(posedge clk) begin
+always @(posedge clk_i) begin
         if (!D_stall) begin
                 DE_PC <= FD_PC;
                 DE_instr <= (E_flush | FD_nop) ? NOP : FD_instr;
+                DE_nop <= 1'b0;
+
+                DE_isLUI    <= D_isLUI;
+                DE_isAUIPC  <= D_isAUIPC;
+                DE_isJAL    <= D_isJAL;
+                DE_isJALR   <= D_isJALR;
+                DE_isBranch <= D_isBranch;
+                DE_isLoad   <= D_isLoad;
+                DE_isStore  <= D_isStore;
+                DE_isALUI   <= D_isALUI;
+                DE_isALUR   <= D_isALUR;
+                DE_isFENCE  <= D_isFENCE;
+                DE_isSYS    <= D_isSYS;
+                DE_isEBREAK <= D_isEBREAK;
+                DE_isCSR    <= D_isCSR;
+
+                DE_rdId <= D_rdId;
+                DE_rs1Id <= D_rs1Id;
+                DE_rs2Id <= D_rs2Id;
+                DE_csrId <= D_csrId;
+
+                DE_funct3 <= D_funct3;
+                DE_funct3_is <= 8'b00000001 << FD_instr[14:12];
+                DE_funct7 <= D_funct7;
+
+                DE_Iimm <= D_Iimm;
+                DE_Simm <= D_Simm;
+                DE_Bimm <= D_Bimm;
+                DE_Uimm <= D_Uimm;
+
                 DE_predictBranch <= D_predictBranch;
                 DE_bhtIndex <= D_bhtIndex;
+
+                DE_wbEnable <= ~(D_isBranch | D_isStore);
         end
 
-        if (E_flush)
-                DE_instr <= NOP;
+        if (E_flush || FD_nop) begin
+                DE_instr    <= NOP;
+                DE_nop      <= 1'b1;
+                DE_isLUI    <= 1'b0;
+                DE_isAUIPC  <= 1'b0;
+                DE_isJAL    <= 1'b0;
+                DE_isJALR   <= 1'b0;
+                DE_isBranch <= 1'b0;
+                DE_isLoad   <= 1'b0;
+                DE_isStore  <= 1'b0;
+                DE_isALUI   <= 1'b0;
+                DE_isALUR   <= 1'b0;
+                DE_isFENCE  <= 1'b0;
+                DE_isSYS    <= 1'b0;
+                DE_isEBREAK <= 1'b0;
+                DE_isCSR    <= 1'b0;
+                DE_wbEnable <= 1'b0;
+        end
 
-                if (wbEnable) 
+        if (wbEnable) 
                 RegisterFile[wbRdId] <= wbData;
 end
-
-assign DE_rs1 = RegisterFile[rs1Id(DE_instr)];
-assign DE_rs2 = RegisterFile[rs2Id(DE_instr)];
 
 /*----------------------------------------------------------------------------*/
 reg  [31:0] DE_PC;
 reg  [31:0] DE_instr;
-wire [31:0] DE_rs1;
-wire [31:0] DE_rs2;
+reg         DE_nop;
+
+reg DE_isLUI;
+reg DE_isAUIPC;
+reg DE_isJAL;
+reg DE_isJALR;
+reg DE_isBranch;
+reg DE_isLoad;
+reg DE_isStore;
+reg DE_isALUI;
+reg DE_isALUR;
+reg DE_isFENCE;
+reg DE_isSYS;
+reg DE_isEBREAK;
+reg DE_isCSR;
+
+reg [4:0]  DE_rdId;
+reg [4:0]  DE_rs1Id;
+reg [4:0]  DE_rs2Id;
+reg [11:0] DE_csrId;
+
+reg [2:0]  DE_funct3;
+(* onehot *) reg [7:0] DE_funct3_is;
+reg [6:0]  DE_funct7;
+
+reg [31:0] DE_Iimm;
+reg [31:0] DE_Simm;
+reg [31:0] DE_Bimm;
+reg [31:0] DE_Uimm;
+
 reg         DE_predictBranch;
 reg [BP_ADDR_BITS-1:0] DE_bhtIndex;
+reg DE_wbEnable; // !isBranch && !isStore && rdId != 0
+
 /******************************************************************************
  ---------------------------------EXECUTE UNIT--------------------------------*
  ******************************************************************************/
 
 /*---------------REGISTER FORWARDING--------------*/
 // Forward from End of Execute Unit
-wire EMfwd_rs1 = rdId(EM_instr) != 0 && writesRd(EM_instr) &&
-        (rdId(EM_instr) == rs1Id(DE_instr));
-
-wire EMfwd_rs2 = rdId(EM_instr) != 0 && writesRd(EM_instr) &&
-        (rdId(EM_instr) == rs2Id(DE_instr));
+wire EMfwd_rs1 = EM_wbEnable && (EM_rdId == DE_rs1Id);
+wire EMfwd_rs2 = EM_wbEnable && (EM_rdId == DE_rs2Id);
 
 // Forward from End of Memory Unit
-wire EWfwd_rs1 = rdId(MW_instr) != 0 && writesRd(MW_instr) &&
-        (rdId(MW_instr) == rs1Id(DE_instr));
-
-wire EWfwd_rs2 = rdId(MW_instr) != 0 && writesRd(MW_instr) &&
-        (rdId(MW_instr) == rs2Id(DE_instr));
+wire EWfwd_rs1 = MW_wbEnable && (MW_rdId == DE_rs1Id);
+wire EWfwd_rs2 = MW_wbEnable && (MW_rdId == DE_rs2Id);
 
 wire [31:0] E_rs1 = EMfwd_rs1 ? EM_Eresult :
-        EWfwd_rs1 ? wbData : DE_rs1;
+        EWfwd_rs1 ? wbData : RegisterFile[DE_rs1Id];
 
 wire [31:0] E_rs2 = EMfwd_rs2 ? EM_Eresult :
-        EWfwd_rs2 ? wbData : DE_rs2;
+        EWfwd_rs2 ? wbData : RegisterFile[DE_rs2Id];
 
 /*----------------------ALU-----------------------*/
 wire [31:0] E_aluIn1 = E_rs1;
 wire [31:0] E_aluIn2 =
-        isALUR(DE_instr) | isBranch(DE_instr) ? E_rs2 : Iimm(DE_instr);
+        DE_isALUR | DE_isBranch ? E_rs2 : DE_Iimm;
 
 // Add Subtract
+wire E_isMinus = DE_funct7[5] & DE_isALUR;
 wire [31:0] E_aluPlus = E_aluIn1 + E_aluIn2;
 wire [32:0] E_aluMinus = {1'b0, E_aluIn1} + {1'b1, ~E_aluIn2} + 33'b1;
 
@@ -310,116 +329,130 @@ wire E_LT  = (E_aluIn1[31] ^ E_aluIn2[31]) ? E_aluIn1[31] : E_aluMinus[32];
 wire E_LTU = E_aluMinus[32];
 wire E_EQ  = (E_aluMinus[31:0] == 0);
 
+// Flip a 32 bit word. Used by the shifter
+function [31:0] flip32;
+        input [31:0] x;
+        flip32 = {x[ 0], x[ 1], x[ 2], x[ 3], x[ 4], x[ 5], x[ 6], x[ 7],
+                x[ 8], x[ 9], x[10], x[11], x[12], x[13], x[14], x[15],
+                x[16], x[17], x[18], x[19], x[20], x[21], x[22], x[23],
+                x[24], x[25], x[26], x[27], x[28], x[29], x[30], x[31]};
+endfunction
+
 // Bit Shifts
 wire E_arithShift = DE_instr[30];
 wire [31:0] E_shifterIn = 
-        (funct3(DE_instr)==3'b001) ? flip32(E_aluIn1) : E_aluIn1;
+        (DE_funct3 == 3'b001) ? flip32(E_aluIn1) : E_aluIn1;
 wire [31:0] E_shifter =
         $signed({E_arithShift & E_aluIn1[31], E_shifterIn}) >>> E_aluIn2[4:0];
 wire [31:0] E_leftShift = flip32(E_shifter);
 
-reg  [31:0] E_aluOut;
-always @(*) begin
-        case (funct3(DE_instr))
-                // Add/Sub
-                3'b000: begin
-                        if (DE_instr[30] & isALUR(DE_instr)) begin
-                                E_aluOut = E_aluMinus[31:0];
-                        end else begin
-                                E_aluOut = E_aluPlus;
-                        end
-                end
-                // Left Shift
-                3'b001: E_aluOut = E_leftShift;
-                // Signed Comparason (<)
-                3'b010: E_aluOut = {31'b0, E_LT};
-                // Unsigned Comparason (<)
-                3'b011: E_aluOut = {31'b0, E_LTU};
-                // XOR
-                3'b100: E_aluOut = E_aluIn1 ^ E_aluIn2;
-                // Logical/Atithmetic Right Shift
-                3'b101: E_aluOut = E_shifter;
-                // OR
-                3'b110: E_aluOut = E_aluIn1 | E_aluIn2;
-                // AND
-                3'b111: E_aluOut = E_aluIn1 & E_aluIn2;
-        endcase
-end
+wire [31:0] E_aluOut = 
+        (DE_funct3_is[0] ? (E_isMinus ? E_aluMinus[31:0] : E_aluPlus) : 32'b0) |
+        (DE_funct3_is[1] ? E_leftShift                                : 32'b0) |
+        (DE_funct3_is[2] ? {31'b0, E_LT}                              : 32'b0) |
+        (DE_funct3_is[3] ? {31'b0, E_LTU}                             : 32'b0) |
+        (DE_funct3_is[4] ? E_aluIn1 ^ E_aluIn2                        : 32'b0) |
+        (DE_funct3_is[5] ? E_shifter                                  : 32'b0) |
+        (DE_funct3_is[6] ? E_aluIn1 | E_aluIn2                        : 32'b0) |
+        (DE_funct3_is[7] ? E_aluIn1 & E_aluIn2                        : 32'b0) ;
 
 /*------------------JUMP/BRANCH-------------------*/
-reg E_takeBranch;
-always @(*) begin
-        case (funct3(DE_instr))
-                // BEQ
-                3'b000:  E_takeBranch = E_EQ;
-                // BNE
-                3'b001:  E_takeBranch = !E_EQ;
-                // BLT
-                3'b100:  E_takeBranch = E_LT;
-                // BGE
-                3'b101:  E_takeBranch = !E_LT;
-                // BLTU
-                3'b110:  E_takeBranch = E_LTU;
-                // BGEU
-                3'b111:  E_takeBranch = !E_LTU;
-                default: E_takeBranch = 1'b0;
-        endcase
+wire E_takeBranch = 
+        (DE_funct3_is[0] &  E_EQ ) | // BEQ
+        (DE_funct3_is[1] & !E_EQ ) | // BNE
+        (DE_funct3_is[4] &  E_LT ) | // BLT
+        (DE_funct3_is[5] & !E_LT ) | // BGE
+        (DE_funct3_is[6] &  E_LTU) | // BLTU
+        (DE_funct3_is[7] & !E_LTU) ; // BGEU
+
+always @(posedge clk_i) begin
+        if (DE_isBranch) begin
+                branchHist <= {E_takeBranch, branchHist[BH_BITS-1:1]};
+                BHT[DE_bhtIndex] <= 
+                        {E_takeBranch, BHT[DE_bhtIndex]} == 3'b000 ? 2'b00 :
+                        {E_takeBranch, BHT[DE_bhtIndex]} == 3'b001 ? 2'b00 :
+                        {E_takeBranch, BHT[DE_bhtIndex]} == 3'b010 ? 2'b01 :
+                        {E_takeBranch, BHT[DE_bhtIndex]} == 3'b011 ? 2'b10 :		
+                        {E_takeBranch, BHT[DE_bhtIndex]} == 3'b100 ? 2'b01 :
+                        {E_takeBranch, BHT[DE_bhtIndex]} == 3'b101 ? 2'b10 :
+                        {E_takeBranch, BHT[DE_bhtIndex]} == 3'b110 ? 2'b11 :
+                        2'b11 ;
+        end
 end
 
 // Flush only for JALR (Need RS1) or if the branch prediction was wrong
-wire E_jumpOrBranch = (
-        isJALR(DE_instr) ||
-        (isBranch(DE_instr) && (E_takeBranch ^ DE_predictBranch))
+wire E_correctPC = (
+        DE_isJALR ||
+        (DE_isBranch && (E_takeBranch ^ DE_predictBranch))
 );
 
-wire [31:0] E_jumpBranchAddr = 
-        isBranch(DE_instr) ? DE_PC + (DE_predictBranch ? 4 : Bimm(DE_instr)) :
+wire [31:0] E_PCcorrection = 
+        DE_isBranch ? DE_PC + (DE_predictBranch ? 4 : DE_Bimm) :
         /* JALR */           {E_aluPlus[31:1], 1'b0};
 
 wire [31:0] E_result = 
-        (isJAL(DE_instr) | isJALR(DE_instr)) ? DE_PC + 4              :
-        isLUI(DE_instr)                      ? Uimm(DE_instr)         :
-        isAUIPC(DE_instr)                    ? DE_PC + Uimm(DE_instr) :
-        /* ALU OP */                           E_aluOut;
+        (DE_isJAL | DE_isJALR) ? DE_PC + 4              :
+        DE_isLUI                      ? DE_Uimm         :
+        DE_isAUIPC                    ? DE_PC + DE_Uimm :
+        /* ALU OP */                           E_aluOut ;
 
 /*------------------------------------------------*/
 // Memory access address
 wire [31:0] E_addr =
-        isStore(DE_instr) ? E_rs1 + Simm(DE_instr) : E_rs1 + Iimm(DE_instr);
+        DE_isStore ? E_rs1 + DE_Simm : E_rs1 + DE_Iimm;
 
-always @(posedge clk) begin
+always @(posedge clk_i) begin
         EM_PC <= DE_PC;
         EM_instr <= DE_instr;
+        EM_nop <= DE_nop;
+
+        EM_isLoad <= DE_isLoad;
+        EM_isStore <= DE_isStore;
+        EM_isCSR <= DE_isCSR;
+        EM_rdId <= DE_rdId;
+        EM_rs1Id <= DE_rs1Id;
+        EM_rs2Id <= DE_rs2Id;
+        EM_csrId <= DE_csrId;
+        EM_funct3 <= DE_funct3;
         EM_rs2 <= E_rs2;
         EM_Eresult <= E_result;
         EM_addr <= E_addr;
-        EM_jumpBranchAddr <= E_jumpBranchAddr;
-        EM_jumpOrBranchNow <= E_jumpOrBranch;
-
-        if (isBranch(DE_instr)) begin
-                branchHist <= {E_takeBranch, branchHist[BH_BITS-1:1]};
-                BHT[DE_bhtIndex] <= incdec_sat(BHT[DE_bhtIndex], E_takeBranch);
-        end
+        EM_Mdata <= DATARAM[E_addr[31:2]];
+        EM_correctPC <= E_correctPC;
+        EM_PCcorrection <= E_PCcorrection;
+        EM_wbEnable <= DE_wbEnable && (DE_rdId != 0);
 end
 
-assign HALT = !reset & isEBREAK(DE_instr);
+assign HALT = !reset_i & DE_isEBREAK;
 
 /*----------------------------------------------------------------------------*/
 reg [31:0] EM_PC;
 reg [31:0] EM_instr;
+reg        EM_nop;
+
+reg        EM_isLoad;
+reg        EM_isStore;
+reg        EM_isCSR;
+reg [4:0]  EM_rdId;
+reg [4:0]  EM_rs1Id;
+reg [4:0]  EM_rs2Id;
+reg [11:0] EM_csrId;
 reg [31:0] EM_rs2;
+reg [2:0]  EM_funct3;
+
 reg [31:0] EM_Eresult;
 reg [31:0] EM_addr;
-reg [31:0] EM_jumpBranchAddr;
-reg        EM_jumpOrBranchNow;
+reg [31:0] EM_Mdata;
+reg        EM_correctPC;
+reg [31:0] EM_PCcorrection;
+reg        EM_wbEnable;
 
 /******************************************************************************
  ------------------------------MEMORY ACCESS UNIT-----------------------------*
  ******************************************************************************/
 
-wire [2:0] M_funct3 = funct3(EM_instr);
-wire M_is8 = (M_funct3[1:0] == 2'b00);
-wire M_isH = (M_funct3[1:0] == 2'b01);
+wire M_isB = (EM_funct3[1:0] == 2'b00);
+wire M_isH = (EM_funct3[1:0] == 2'b01);
 
 /*----------------------STORE---------------------*/
 wire [31:0] M_storeData;
@@ -431,7 +464,7 @@ assign M_storeData[31:24] = EM_addr[0] ? EM_rs2[7:0]  :
 
 reg [3:0] M_storeMask;
 always @(*) begin
-        if (M_is8) begin
+        if (M_isB) begin
                 if (EM_addr[1:0] == 2'b11)
                         M_storeMask = 4'b1000;
                 else if (EM_addr[1:0] == 2'b10)
@@ -453,12 +486,12 @@ end
 wire M_isIO  = EM_addr[22];
 wire M_isRAM = !M_isIO;
 
-assign IO_memAddr  = EM_addr;
-assign IO_memWr    = isStore(EM_instr) && M_isIO;
-assign IO_memWData = EM_rs2;
+assign IO_memAddr_o  = EM_addr;
+assign IO_memWr_o    = EM_isStore && M_isIO;
+assign IO_memWData_o = EM_rs2;
 
 wire [3:0] M_wmask = 
-        {4{isStore(EM_instr) & M_isRAM}} & M_storeMask;
+        {4{EM_isStore & M_isRAM}} & M_storeMask;
 
 reg [31:0] DATARAM [0:16383];
 
@@ -467,7 +500,7 @@ initial begin
 end
 
 wire [29:0] M_wordAddr = EM_addr[31:2];
-always @(posedge clk) begin
+always @(posedge clk_i) begin
         MW_Mdata <=DATARAM[M_wordAddr];
         if (M_wmask[0]) DATARAM[M_wordAddr][ 7:0 ] <= M_storeData[ 7:0 ];
         if (M_wmask[1]) DATARAM[M_wordAddr][15:8 ] <= M_storeData[15:8 ];
@@ -475,52 +508,89 @@ always @(posedge clk) begin
         if (M_wmask[3]) DATARAM[M_wordAddr][31:24] <= M_storeData[31:24];
 end
 
+/*----------------------LOAD----------------------*/
+wire [15:0] M_memHalf = EM_addr[1] ? EM_Mdata[31:16] : EM_Mdata[15:0];
+wire [7:0]  M_memByte = EM_addr[0] ? M_memHalf[15:8]  : M_memHalf[7:0];
+
+// Sign expansion
+// Based on funct3[2]: 0->sign expand, 1->unsigned
+wire M_loadSign = !EM_funct3[2] & (M_isB ? M_memByte[7] : M_memHalf[15]);
+
+reg [31:0] M_Mdata;
+always @(*) begin
+        if(M_isB)
+                M_Mdata = {{24{M_loadSign}}, M_memByte};
+        else if(M_isH)
+                M_Mdata = {{16{M_loadSign}}, M_memHalf};
+        else
+                M_Mdata = EM_Mdata;
+end
+
 /*-----------------------CSR----------------------*/
 reg [31:0] M_csrData;
 always @(*) begin
-        if (csrId(EM_instr) == CYCLE_ID)
-                M_csrData = cycle[31:0];
-        else if (csrId(EM_instr) == CYCLEH_ID)
-                M_csrData = cycle[63:32];
-        else if (csrId(EM_instr) == INSTRET_ID)
-                M_csrData = instret[31:0];
-        else // if (csrId(EM_instr) == INSTRETH_ID)
-                M_csrData = instret[63:32];
+        case (EM_csrId)
+                CYCLE_ID:    M_csrData = cycle[31:0];
+                CYCLEH_ID:   M_csrData = cycle[63:32];
+                INSTRET_ID:  M_csrData = instret[31:0];
+                INSTRETH_ID: M_csrData = instret[63:32];
+                default:     M_csrData = 32'h00000000;
+        endcase
 end
 
 /*------------------------------------------------*/
-always @(posedge clk) begin
+wire [31:0] M_wbData =
+        EM_isLoad ? (M_isIO ? IO_memRData_i : M_Mdata) :
+        EM_isCSR  ? M_csrData : EM_Eresult;
+
+always @(posedge clk_i) begin
         MW_PC <= EM_PC;
         MW_instr <= EM_instr;
+        MW_nop <= EM_nop;
+
+        MW_isLoad <= EM_isLoad;
+        MW_isCSR <= EM_isCSR;
+        MW_rdId <= EM_rdId;
+        MW_funct3 <= EM_funct3;
+
         MW_Eresult <= EM_Eresult;
-        MW_IOresult <= IO_memRData;
+        MW_IOresult <= IO_memRData_i;
         MW_addr <= EM_addr;
         MW_CSRresult <= M_csrData;
+        MW_wbData <= M_wbData;
+        MW_wbEnable <= EM_wbEnable;
 
-        if (reset)
+        if (reset_i)
                 instret <= 0;
-        else if (MW_instr != NOP)
+        else if (!MW_nop)
                 instret <= instret + 1;
 end
 
 /*----------------------------------------------------------------------------*/
 reg [31:0] MW_PC;
 reg [31:0] MW_instr;
+reg        MW_nop;
+
+reg        MW_isLoad;
+reg        MW_isCSR;
+reg [4:0]  MW_rdId;
+reg [2:0]  MW_funct3;
+
 reg [31:0] MW_Eresult;
 reg [31:0] MW_addr;
 reg [31:0] MW_Mdata;
 reg [31:0] MW_IOresult;
 reg [31:0] MW_CSRresult;
+reg [31:0] MW_wbData;
+reg        MW_wbEnable;
 /******************************************************************************
  -------------------------------WRITE BACK UNIT-------------------------------- 
  ******************************************************************************/
 
-wire [2:0] W_funct3 = funct3(MW_instr);
-
 /*----------------------LOAD----------------------*/
 // Determine type of load. Word, Halfword, or Byte
-wire W_loadByte = (W_funct3[1:0] == 2'b00);
-wire W_loadHalf = (W_funct3[1:0] == 2'b01);
+wire W_loadByte = (MW_funct3[1:0] == 2'b00);
+wire W_loadHalf = (MW_funct3[1:0] == 2'b01);
 wire W_isIO = MW_addr[22];
 
 wire [15:0] W_memHalf = MW_addr[1] ? MW_Mdata[31:16] : MW_Mdata[15:0];
@@ -528,7 +598,7 @@ wire [7:0]  W_memByte = MW_addr[0] ? W_memHalf[15:8]  : W_memHalf[7:0];
 
 // Sign expansion
 // Based on funct3[2]: 0->sign expand, 1->unsigned
-wire W_loadSign = !W_funct3[2] & (W_loadByte ? W_memByte[7] : W_memHalf[15]);
+wire W_loadSign = !MW_funct3[2] & (W_loadByte ? W_memByte[7] : W_memHalf[15]);
 
 reg [31:0] W_Mresult;
 always @(*) begin
@@ -541,14 +611,13 @@ always @(*) begin
 end
 
 /*----------------REGISTER WRITEBACK--------------*/
-assign wbData =
-        isLoad(MW_instr) ? (W_isIO ? MW_IOresult : W_Mresult) :
-        isCSR(MW_instr)  ? MW_CSRresult : MW_Eresult;
+assign wbData = //MW_wbData;
+        MW_isLoad ? (W_isIO ? MW_IOresult : W_Mresult) :
+        MW_isCSR  ? MW_CSRresult : MW_Eresult;
 
-assign wbEnable = 
-        !isBranch(MW_instr) && !isStore(MW_instr) && (rdId(MW_instr) != 0);
+assign wbEnable = MW_wbEnable;
 
-assign wbRdId = rdId(MW_instr);
+assign wbRdId = MW_rdId;
 
 /*----------------------------------------------------------------------------*/
 `ifdef BENCH
@@ -556,23 +625,23 @@ assign wbRdId = rdId(MW_instr);
         integer nbPredictHit = 0;
         integer nbJAL  = 0;
         integer nbJALR = 0;
-        always @(posedge clk) begin
-                if(!reset) begin
-                        if(isBranch(DE_instr)) begin
+        always @(posedge clk_i) begin
+                if(!reset_i) begin
+                        if(DE_isBranch) begin
                                 nbBranch <= nbBranch + 1;
                                 if(E_takeBranch == DE_predictBranch) begin
                                         nbPredictHit <= nbPredictHit + 1;
                                 end
                         end
-                        if(isJAL(DE_instr)) begin
+                        if(DE_isJAL) begin
                                 nbJAL <= nbJAL + 1;
                         end
-                        if(isJALR(DE_instr)) begin
+                        if(DE_isJALR) begin
                                 nbJALR <= nbJALR + 1;
                         end
                 end
         end
-        always @(posedge clk) begin
+        always @(posedge clk_i) begin
                 if(HALT) begin
                         $display("\n\nSimulated processor's report");
                         $display("----------------------------");
@@ -583,14 +652,15 @@ assign wbRdId = rdId(MW_instr);
                                 nbBranch*100.0/instret,
                                 nbJAL*100.0/instret,
                                 nbJALR*100.0/instret);
+                        $finish();
                 end
         end
 `endif
 
 `ifdef BENCH
 `ifdef VERBOSE
-        always @(posedge clk) begin
-                if(!reset) begin
+        always @(posedge clk_i) begin
+                if(!reset_i) begin
                         $write("[F] PC=%h ", F_PC);
                         if(jumpOrBranch) $write(" PC <- 0x%0h",jumpBranchAddr);
                         $write("\n");

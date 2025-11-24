@@ -22,13 +22,13 @@ public:
         }
 
         virtual bool done(void) {
-                static int clocksAfterHalt = 0;
-                if (m_core->rootp->SOC__DOT__CPU__DOT__HALT == 1)
-                        clocksAfterHalt++;
-
-                // Exit 1 clock after halt to allow simulation to finish
-                if (clocksAfterHalt > 1)
-                        return true;
+                // static int clocksAfterHalt = 0;
+                // if (m_core->rootp->SOC__DOT__CPU__DOT__HALT == 1)
+                //         clocksAfterHalt++;
+                //
+                // // Exit 1 clock after halt to allow simulation to finish
+                // if (clocksAfterHalt > 1)
+                //         return true;
 
                 // Default
                 return TESTB<VSOC>::done();
