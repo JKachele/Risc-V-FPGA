@@ -1,7 +1,6 @@
 .equ IO_LEDS, 0x04
 .equ IO_UART_DAT, 0x08
 .equ IO_UART_CNTL, 0x10
-.equ IO_SSEG, 0x10
 
 # Fixed point numbers
 .equ MANDEL_SHIFT, 10
