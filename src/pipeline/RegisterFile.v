@@ -16,7 +16,6 @@ module RegisterFile (
         output wire [31:0] rs1Data_o,
         output wire [31:0] rs2Data_o
 );
-generate
 
 reg [31:0] reg_1;
 reg [31:0] reg_2;
@@ -158,78 +157,77 @@ reg [31:0] rs1Data;
 reg [31:0] rs2Data;
 always @(*) begin
         case (rs1Id_i)
-                5'd1:  rs1Data <= reg_1;
-                5'd2:  rs1Data <= reg_2;
-                5'd3:  rs1Data <= reg_3;
-                5'd4:  rs1Data <= reg_4;
-                5'd5:  rs1Data <= reg_5;
-                5'd6:  rs1Data <= reg_6;
-                5'd7:  rs1Data <= reg_7;
-                5'd8:  rs1Data <= reg_8;
-                5'd9:  rs1Data <= reg_9;
-                5'd10: rs1Data <= reg_10;
-                5'd11: rs1Data <= reg_11;
-                5'd12: rs1Data <= reg_12;
-                5'd13: rs1Data <= reg_13;
-                5'd14: rs1Data <= reg_14;
-                5'd15: rs1Data <= reg_15;
-                5'd16: rs1Data <= reg_16;
-                5'd17: rs1Data <= reg_17;
-                5'd18: rs1Data <= reg_18;
-                5'd19: rs1Data <= reg_19;
-                5'd20: rs1Data <= reg_20;
-                5'd21: rs1Data <= reg_21;
-                5'd22: rs1Data <= reg_22;
-                5'd23: rs1Data <= reg_23;
-                5'd24: rs1Data <= reg_24;
-                5'd25: rs1Data <= reg_25;
-                5'd26: rs1Data <= reg_26;
-                5'd27: rs1Data <= reg_27;
-                5'd28: rs1Data <= reg_28;
-                5'd29: rs1Data <= reg_29;
-                5'd30: rs1Data <= reg_30;
-                5'd31: rs1Data <= reg_31;
-                default: rs1Data <= 32'h00000000;'
+                5'd1:  rs1Data = reg_1;
+                5'd2:  rs1Data = reg_2;
+                5'd3:  rs1Data = reg_3;
+                5'd4:  rs1Data = reg_4;
+                5'd5:  rs1Data = reg_5;
+                5'd6:  rs1Data = reg_6;
+                5'd7:  rs1Data = reg_7;
+                5'd8:  rs1Data = reg_8;
+                5'd9:  rs1Data = reg_9;
+                5'd10: rs1Data = reg_10;
+                5'd11: rs1Data = reg_11;
+                5'd12: rs1Data = reg_12;
+                5'd13: rs1Data = reg_13;
+                5'd14: rs1Data = reg_14;
+                5'd15: rs1Data = reg_15;
+                5'd16: rs1Data = reg_16;
+                5'd17: rs1Data = reg_17;
+                5'd18: rs1Data = reg_18;
+                5'd19: rs1Data = reg_19;
+                5'd20: rs1Data = reg_20;
+                5'd21: rs1Data = reg_21;
+                5'd22: rs1Data = reg_22;
+                5'd23: rs1Data = reg_23;
+                5'd24: rs1Data = reg_24;
+                5'd25: rs1Data = reg_25;
+                5'd26: rs1Data = reg_26;
+                5'd27: rs1Data = reg_27;
+                5'd28: rs1Data = reg_28;
+                5'd29: rs1Data = reg_29;
+                5'd30: rs1Data = reg_30;
+                5'd31: rs1Data = reg_31;
+                default: rs1Data = 32'h00000000;
         endcase
 
         case (rs2Id_i)
-                5'd1:  rs2Data <= reg_1;
-                5'd2:  rs2Data <= reg_2;
-                5'd3:  rs2Data <= reg_3;
-                5'd4:  rs2Data <= reg_4;
-                5'd5:  rs2Data <= reg_5;
-                5'd6:  rs2Data <= reg_6;
-                5'd7:  rs2Data <= reg_7;
-                5'd8:  rs2Data <= reg_8;
-                5'd9:  rs2Data <= reg_9;
-                5'd10: rs2Data <= reg_10;
-                5'd11: rs2Data <= reg_11;
-                5'd12: rs2Data <= reg_12;
-                5'd13: rs2Data <= reg_13;
-                5'd14: rs2Data <= reg_14;
-                5'd15: rs2Data <= reg_15;
-                5'd16: rs2Data <= reg_16;
-                5'd17: rs2Data <= reg_17;
-                5'd18: rs2Data <= reg_18;
-                5'd19: rs2Data <= reg_19;
-                5'd20: rs2Data <= reg_20;
-                5'd21: rs2Data <= reg_21;
-                5'd22: rs2Data <= reg_22;
-                5'd23: rs2Data <= reg_23;
-                5'd24: rs2Data <= reg_24;
-                5'd25: rs2Data <= reg_25;
-                5'd26: rs2Data <= reg_26;
-                5'd27: rs2Data <= reg_27;
-                5'd28: rs2Data <= reg_28;
-                5'd29: rs2Data <= reg_29;
-                5'd30: rs2Data <= reg_30;
-                5'd31: rs2Data <= reg_31;
-                default: rs2Data <= 32'h00000000;'
+                5'd1:  rs2Data = reg_1;
+                5'd2:  rs2Data = reg_2;
+                5'd3:  rs2Data = reg_3;
+                5'd4:  rs2Data = reg_4;
+                5'd5:  rs2Data = reg_5;
+                5'd6:  rs2Data = reg_6;
+                5'd7:  rs2Data = reg_7;
+                5'd8:  rs2Data = reg_8;
+                5'd9:  rs2Data = reg_9;
+                5'd10: rs2Data = reg_10;
+                5'd11: rs2Data = reg_11;
+                5'd12: rs2Data = reg_12;
+                5'd13: rs2Data = reg_13;
+                5'd14: rs2Data = reg_14;
+                5'd15: rs2Data = reg_15;
+                5'd16: rs2Data = reg_16;
+                5'd17: rs2Data = reg_17;
+                5'd18: rs2Data = reg_18;
+                5'd19: rs2Data = reg_19;
+                5'd20: rs2Data = reg_20;
+                5'd21: rs2Data = reg_21;
+                5'd22: rs2Data = reg_22;
+                5'd23: rs2Data = reg_23;
+                5'd24: rs2Data = reg_24;
+                5'd25: rs2Data = reg_25;
+                5'd26: rs2Data = reg_26;
+                5'd27: rs2Data = reg_27;
+                5'd28: rs2Data = reg_28;
+                5'd29: rs2Data = reg_29;
+                5'd30: rs2Data = reg_30;
+                5'd31: rs2Data = reg_31;
+                default: rs2Data = 32'h00000000;
         endcase
 end
 assign rs1Data_o = rs1Data;
 assign rs2Data_o = rs2Data;
 
-endgenerate
 endmodule
 

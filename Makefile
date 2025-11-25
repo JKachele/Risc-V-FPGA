@@ -3,15 +3,18 @@
 # @file        : Makefile
 # @created     : Friday Oct 17, 2025 14:39:28 UTC
 ######################################################################
+RVARCH = rv32im
+RVABI = ilp32
 RVTOOL_PREFIX := riscv64-unknown-elf
 RVTOOL_DIR := /opt/riscv
-RV_LIB_DIR := $(RVTOOL_DIR)/$(RVTOOL_PREFIX)/lib/rv32i/ilp32
-GCC_LIB_DIR := /opt/riscv/lib/gcc/riscv64-unknown-elf/10.1.0/rv32i/ilp32
+RV_LIB_DIR := $(RVTOOL_DIR)/$(RVTOOL_PREFIX)/lib/$(RVARCH)/$(RVABI)
+GCC_LIB_DIR := /opt/riscv/lib/gcc/riscv64-unknown-elf/10.1.0/$(RVARCH)/$(RVABI)
 
 CC := $(RVTOOL_PREFIX)-gcc
 LD := $(RVTOOL_PREFIX)-ld
 OBJCOPY := $(RVTOOL_PREFIX)-objcopy
-CFLAGS := -march=rv32i -mabi=ilp32 -nostdlib -Wno-builtin-declaration-mismatch
+CFLAGS := -march=$(RVARCH) -mabi=$(RVABI) -Wno-builtin-declaration-mismatch
+CFLAGS += -nostdlib -fno-pic -fno-stack-protector -w -Wl,--no-relax 
 LDFLAGS := -m elf32lriscv -nostdlib --no-relax
 LDFLAGS += -L$(RV_LIB_DIR) -lm $(GCC_LIB_DIR)/libgcc.a
 
@@ -30,7 +33,7 @@ BIN_DIR := bin
 BUILD_DIR := build
 
 # Firmware
-SRC := firmware/startPipeline.S firmware/dhrystones.c
+SRC := firmware/startPipeline.S firmware/raystones.c
 SRC += $(wildcard firmware/libs/*.S) $(wildcard firmware/libs/*.c) 
 OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
 LDSCRIPT = firmware/ram.ld
@@ -66,7 +69,7 @@ $(BUILD_DIR)/%.c.o: %.c
 	$(CC) -o $@ -c $< $(CFLAGS)
 
 sim: $(ROM) $(RAM)
-	cd obj_dir; rm -f *.cpp *.o *.a *.vcd V$(TOP)
+	rm -rf ./obj_dir
 	$(TB) $(TBFLAGS) $(TBSRC) $(VSRC)
 	cd obj_dir; make -f V$(TOP).mk -s
 	cd obj_dir; ./V$(TOP)

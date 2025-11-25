@@ -9,6 +9,8 @@
 `include "../Extern/LedDim.v"
 `include "../Extern/txuart.v"
 `include "Processor.v"
+`include "RegisterFile.v"
+`include "CSR_RegFile.v"
 
 module SOC (
         input  wire CLK,
@@ -21,19 +23,66 @@ module SOC (
 wire clk;
 wire reset;
 
+// Registers
+wire [31:0] rs1Data;
+wire [31:0] rs2Data;
+wire [4:0]  rdId;
+wire [31:0] rdData;
+wire [4:0]  rs1Id;
+wire [4:0]  rs2Id;
+
 // IO
 wire [31:0] IO_memAddr;
 wire [31:0] IO_memRData;
 wire [31:0] IO_memWData;
 wire        IO_memWr;
 
+// CSR
+wire [11:0] csrWAddr;
+wire [31:0] csrWData;
+wire [11:0] csrRAddr;
+wire [31:0] csrRData;
+wire        csrInstStep;
+
 Processor CPU(
         .clk_i(clk),
         .reset_i(reset),
+        .rs1Data_i(rs1Data),
+        .rs2Data_i(rs2Data),
+        .rdId_o(rdId),
+        .rdData_o(rdData),
+        .rs1Id_o(rs1Id),
+        .rs2Id_o(rs2Id),
         .IO_memAddr_o(IO_memAddr),
         .IO_memRData_i(IO_memRData),
         .IO_memWData_o(IO_memWData),
-        .IO_memWr_o(IO_memWr)
+        .IO_memWr_o(IO_memWr),
+        .csrWAddr_o(csrWAddr), 
+        .csrWData_o(csrWData),
+        .csrRAddr_o(csrRAddr),
+        .csrRData_i(csrRData),
+        .csrInstStep_o(csrInstStep)
+);
+
+RegisterFile registers(
+        .clk_i(clk),
+        .reset_i(reset),
+        .rdId_i(rdId),
+        .rdData_i(rdData),
+        .rs1Id_i(rs1Id),
+        .rs2Id_i(rs2Id),
+        .rs1Data_o(rs1Data),
+        .rs2Data_o(rs2Data)
+);
+
+CSR_RegFile csr(
+        .clk_i(clk),
+        .reset_i(reset),
+        .csrWAddr_i(csrWAddr),
+        .csrWData_i(csrWData),
+        .csrRAddr_i(csrRAddr),
+        .csrRData_o(csrRData),
+        .csrInstStep_i(csrInstStep)
 );
 
 wire [13:0] IO_wordAddr = IO_memAddr[15:2];
@@ -70,6 +119,15 @@ txuart TXUART (
         .o_uart_tx(TXD),
         .o_busy(uartBusy)
 );
+
+`ifdef BENCH
+        always @(posedge clk) begin
+                if(uartValid) begin
+                        $write("%c", IO_memWData[7:0]);
+                        $fflush(32'h8000_0001);
+                end
+        end
+`endif
 
 `ifdef BENCH
         assign LEDS = leds;
