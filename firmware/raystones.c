@@ -507,7 +507,7 @@ void init_scene() {
 int main() {
         init_scene();
 
-        graphics_init();
+        // graphics_init();
         // IO_OUT(IO_LEDS,5);
         bench_run = 1;
         graphics_width  = 40;
@@ -521,7 +521,7 @@ int main() {
         // graphics_height = 60;
         // render(spheres, nb_spheres, lights, nb_lights);
         // IO_OUT(IO_LEDS,15);
-        graphics_terminate();
+        // graphics_terminate();
 
         return 0;
 }

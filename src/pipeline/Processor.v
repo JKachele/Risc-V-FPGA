@@ -6,7 +6,7 @@
  *Created-------Monday Nov 17, 2025 20:09:17 UTC
  ************************************************/
 /* verilator lint_off WIDTH */
-// `define VERBOSE
+// `define CONFIG_DEBUG
 
 module Processor(
         input  wire clk_i,
@@ -78,8 +78,8 @@ wire rs1Hazard = D_readsRs1 && (D_rs1Id == DE_rdId);
 wire rs2Hazard = D_readsRs2 && (D_rs2Id == DE_rdId);
 
 wire dataHazard = !FD_nop &&
-        (DE_isLoad || DE_isCSR) &&
-        (rs1Hazard || rs2Hazard);
+        ((DE_isLoad || DE_isCSR) && (rs1Hazard || rs2Hazard)) ||
+        (D_isLoad && DE_isStore);
 
 assign F_stall = dataHazard | HALT;
 assign D_stall = dataHazard | HALT;
@@ -183,16 +183,32 @@ wire [BP_ADDR_BITS-1:0] D_bhtIndex =
 wire D_predictBranch = BHT[D_bhtIndex][1];
 
 /*--------------RETURN ADDRESS STACK--------------*/
-// reg [31:0] RAS_0;
-// reg [31:0] RAS_1;
-// reg [31:0] RAS_2;
-// reg [31:0] RAS_3;
+reg [31:0] RAS_0;
+reg [31:0] RAS_1;
+reg [31:0] RAS_2;
+reg [31:0] RAS_3;
 
 wire D_predictPC = !FD_nop &&
-        (D_isJAL || (D_isBranch && D_predictBranch));
+        (D_isJAL || D_isJALR || (D_isBranch && D_predictBranch));
 
-wire [31:0] D_PCprediction = 
-        FD_PC + (D_isJAL ? D_Jimm : D_Bimm);
+wire [31:0] D_PCprediction = D_isJALR ? RAS_0 :
+        (FD_PC + (D_isJAL ? D_Jimm : D_Bimm));
+
+always @(posedge clk_i) begin
+        if (!D_stall && !FD_nop && !D_flush) begin
+                if (D_isJAL && D_rdId == 1) begin
+                        RAS_3 <= RAS_2;
+                        RAS_2 <= RAS_1;
+                        RAS_1 <= RAS_0;
+                        RAS_0 <= FD_PC + 4;
+                end
+                if(D_isJALR && D_rdId==0 && (D_rs1Id==1 || D_rs1Id==5)) begin
+                        RAS_0 <= RAS_1;
+                        RAS_1 <= RAS_2;
+                        RAS_2 <= RAS_3;
+                end
+        end
+end
 
 /*------------------------------------------------*/
 always @(posedge clk_i) begin
@@ -229,10 +245,11 @@ always @(posedge clk_i) begin
                 DE_Bimm <= D_Bimm;
                 DE_Uimm <= D_Uimm;
 
+                DE_wbEnable <= ~(D_isBranch | D_isStore);
+
                 DE_predictBranch <= D_predictBranch;
                 DE_bhtIndex <= D_bhtIndex;
-
-                DE_wbEnable <= ~(D_isBranch | D_isStore);
+                DE_predictRA <= RAS_0;
         end
 
         if (E_flush || FD_nop) begin
@@ -291,9 +308,11 @@ reg [31:0] DE_Simm;
 reg [31:0] DE_Bimm;
 reg [31:0] DE_Uimm;
 
+reg DE_wbEnable; // !isBranch && !isStore && rdId != 0
+
 reg         DE_predictBranch;
 reg [BP_ADDR_BITS-1:0] DE_bhtIndex;
-reg DE_wbEnable; // !isBranch && !isStore && rdId != 0
+reg [31:0] DE_predictRA;
 
 /******************************************************************************
  ---------------------------------EXECUTE UNIT--------------------------------*
@@ -380,10 +399,11 @@ always @(posedge clk_i) begin
         end
 end
 
-// Flush only for JALR (Need RS1) or if the branch prediction was wrong
+wire [31:0] E_JALRaddr = {E_aluPlus[31:1],1'b0};
+
 wire E_correctPC = (
-        DE_isJALR ||
-        (DE_isBranch && (E_takeBranch ^ DE_predictBranch))
+        (DE_isJALR    && (DE_predictRA != E_JALRaddr)   ) ||
+        (DE_isBranch  && (E_takeBranch^DE_predictBranch))
 );
 
 wire [31:0] E_PCcorrection = 
@@ -501,7 +521,6 @@ end
 
 wire [29:0] M_wordAddr = EM_addr[31:2];
 always @(posedge clk_i) begin
-        MW_Mdata <=DATARAM[M_wordAddr];
         if (M_wmask[0]) DATARAM[M_wordAddr][ 7:0 ] <= M_storeData[ 7:0 ];
         if (M_wmask[1]) DATARAM[M_wordAddr][15:8 ] <= M_storeData[15:8 ];
         if (M_wmask[2]) DATARAM[M_wordAddr][23:16] <= M_storeData[23:16];
@@ -548,15 +567,7 @@ always @(posedge clk_i) begin
         MW_instr <= EM_instr;
         MW_nop <= EM_nop;
 
-        MW_isLoad <= EM_isLoad;
-        MW_isCSR <= EM_isCSR;
         MW_rdId <= EM_rdId;
-        MW_funct3 <= EM_funct3;
-
-        MW_Eresult <= EM_Eresult;
-        MW_IOresult <= IO_memRData_i;
-        MW_addr <= EM_addr;
-        MW_CSRresult <= M_csrData;
         MW_wbData <= M_wbData;
         MW_wbEnable <= EM_wbEnable;
 
@@ -571,49 +582,14 @@ reg [31:0] MW_PC;
 reg [31:0] MW_instr;
 reg        MW_nop;
 
-reg        MW_isLoad;
-reg        MW_isCSR;
 reg [4:0]  MW_rdId;
-reg [2:0]  MW_funct3;
-
-reg [31:0] MW_Eresult;
-reg [31:0] MW_addr;
-reg [31:0] MW_Mdata;
-reg [31:0] MW_IOresult;
-reg [31:0] MW_CSRresult;
 reg [31:0] MW_wbData;
 reg        MW_wbEnable;
 /******************************************************************************
  -------------------------------WRITE BACK UNIT-------------------------------- 
  ******************************************************************************/
 
-/*----------------------LOAD----------------------*/
-// Determine type of load. Word, Halfword, or Byte
-wire W_loadByte = (MW_funct3[1:0] == 2'b00);
-wire W_loadHalf = (MW_funct3[1:0] == 2'b01);
-wire W_isIO = MW_addr[22];
-
-wire [15:0] W_memHalf = MW_addr[1] ? MW_Mdata[31:16] : MW_Mdata[15:0];
-wire [7:0]  W_memByte = MW_addr[0] ? W_memHalf[15:8]  : W_memHalf[7:0];
-
-// Sign expansion
-// Based on funct3[2]: 0->sign expand, 1->unsigned
-wire W_loadSign = !MW_funct3[2] & (W_loadByte ? W_memByte[7] : W_memHalf[15]);
-
-reg [31:0] W_Mresult;
-always @(*) begin
-        if(W_loadByte)
-                W_Mresult = {{24{W_loadSign}}, W_memByte};
-        else if(W_loadHalf)
-                W_Mresult = {{16{W_loadSign}}, W_memHalf};
-        else
-                W_Mresult = MW_Mdata;
-end
-
-/*----------------REGISTER WRITEBACK--------------*/
-assign wbData = //MW_wbData;
-        MW_isLoad ? (W_isIO ? MW_IOresult : W_Mresult) :
-        MW_isCSR  ? MW_CSRresult : MW_Eresult;
+assign wbData = MW_wbData;
 
 assign wbEnable = MW_wbEnable;
 
@@ -658,41 +634,119 @@ assign wbRdId = MW_rdId;
 `endif
 
 `ifdef BENCH
-`ifdef VERBOSE
+`ifdef CONFIG_DEBUG
+
         always @(posedge clk_i) begin
-                if(!reset_i) begin
-                        $write("[F] PC=%h ", F_PC);
-                        if(jumpOrBranch) $write(" PC <- 0x%0h",jumpBranchAddr);
-                        $write("\n");
+                if(!reset_i & !HALT) begin
 
-                        $write("[D] PC=%h ", FD_PC);
-                        $write("[%s%s] ",rs1Hazard?"*":" ",rs2Hazard?"*":" ");
-                        riscv_disasm(FD_nop ? NOP : FD_instr,FD_PC);
-                        $write("\n");
-
-                        $write("[E] PC=%h ", DE_PC);
                         $write("     ");
-                        riscv_disasm(DE_instr,DE_PC);
-                        if(DE_instr != NOP) begin
-                                $write("  rs1=0x%h  rs2=0x%h  ",DE_rs1, DE_rs2);
-                        end
+                        $write("[W] PC=%h ", MW_PC);
+                        $write("     ");
+                        riscv_disasm(MW_instr,MW_PC);
+                        if(wbEnable) $write(
+                                "    x%0d <- 0x%0h (%0d)",
+                                riscv_disasm_rdId(MW_instr),wbData,wbData
+                        );
                         $write("\n");
 
+                        $write("(  ) ");
                         $write("[M] PC=%h ", EM_PC);
                         $write("     ");
                         riscv_disasm(EM_instr,EM_PC);
                         $write("\n");
 
-                        $write("[W] PC=%h ", MW_PC);
-                        $write("     ");
-                        riscv_disasm(MW_instr,MW_PC);
-                        if(wbEnable) $write("    x%0d <- 0x%0h",rdId(MW_instr),wbData);
+                        $write("( %c) ", E_flush ? "f":" ");
+                        $write("[E] PC=%h ", DE_PC);
+
+                        // Register forwarding
+                        if(DE_nop) $write("[  ] ");
+                        else $write("[%s%s] ",
+                                riscv_disasm_readsRs1(DE_instr) ?
+                                (EMfwd_rs1 ? "M" : EWfwd_rs1 ? "W" : " ") : " ",
+                                riscv_disasm_readsRs2(DE_instr) ?
+                                (EMfwd_rs2 ? "M" : EWfwd_rs2 ? "W" : " ") : " "
+                        );
+                        riscv_disasm(DE_instr,DE_PC);
+                        if(DE_instr != NOP) begin
+                                $write("  rs1=0x%h (%0d) rs2=0x%h (%0d) ",E_rs1,E_rs1,E_rs2,E_rs2);
+                                `ifdef CONFIG_PC_PREDICT
+                                        if(riscv_disasm_isBranch(DE_instr)) begin
+                                                $write(" taken:%0d  %s",
+                                                        E_takeBranch,
+                                                        (E_takeBranch == DE_predictBranch) ?
+                                                        "predict hit" : "predict miss"
+                                                );
+                                        end
+                                `endif
+                        end
+                        $write("\n");
+
+                        $write("(%c%c) ",D_stall ? "s":" ",D_flush ? "f":" ");
+                        $write("[D] PC=%h ", FD_PC);
+                        $write("[%s%s] ",
+                                dataHazard && rs1Hazard?"*":" ",
+                                dataHazard && rs2Hazard?"*":" ");
+                        riscv_disasm(FD_nop ? NOP : FD_instr,FD_PC);
+                        `ifdef CONFIG_PC_PREDICT
+                                if(riscv_disasm_isBranch(FD_instr)) begin
+                                        $write(" predict taken:%0d",D_predictBranch);
+                                end
+                        `endif
+                        $write("\n");
+
+                        $write("(%c ) ",F_stall ? "s":" ");
+                        $write("[F] PC=%h ", F_PC);
+                        `ifdef CONFIG_PC_PREDICT
+                                if(D_predictPC) begin
+                                        $write(" PC <- [D] 0x%0h (prediction)",D_PCprediction);
+                                end
+                        `endif
+                        if(EM_correctPC) begin
+                                $write(" PC <- [E] 0x%0h (correction)",EM_PCcorrection);
+                        end
                         $write("\n");
 
                         $display("");
                 end
         end
-`endif
+
+        /* "debugger" */
+
+        // wire breakpoint = 1'b0; // no breakpoint
+        // wire breakpoint = (EM_addr == 32'h400004); // break on LEDs output
+        wire breakpoint = (EM_addr == 32'h400008); // break on character output
+        // wire breakpoint = (DE_PC   == 32'h000000); // break on address reached
+
+        reg step = 1'b1;
+        reg [31:0] dbg_cmd = 0;
+
+        initial begin
+                $display("");
+                $display("\"Debugger\" commands:");
+                $display("--------------------");
+                $display("g       : go");
+                $display("<return>: step");
+                $display("see \"debugger\" section in source for breakpoints");
+                $display("");
+end
+
+always @(posedge clk_i) begin
+        if(!reset_i & !HALT) begin
+                if(step) begin
+                        $write("DBG>");
+                        dbg_cmd <= $c32("getchar()");
+                        $write("\n");
+                end
+                if(dbg_cmd == "g") begin
+                        step <= 1'b0;
+                end
+                if(breakpoint) begin
+                        step <= 1'b1;
+                end
+        end
+end
+
+`endif // `CONFIG_DEBUG
 `endif
 
 endmodule

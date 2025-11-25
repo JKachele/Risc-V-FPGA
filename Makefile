@@ -53,7 +53,7 @@ $(RAM): $(FIRMWARE)
 	hexdump -ve '"%08x\n"' $@.bin > $@
 	rm $@.bin
 
-$(FIRMWARE): $(OBJ)
+$(FIRMWARE): $(OBJ) Makefile
 	@mkdir -p $(dir $@)
 	$(LD) -T $(LDSCRIPT) $(OBJ) -o $@ $(LDFLAGS)
 
