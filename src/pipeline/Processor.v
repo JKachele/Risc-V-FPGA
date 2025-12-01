@@ -6,7 +6,6 @@
  *Created-------Monday Nov 17, 2025 20:09:17 UTC
  ************************************************/
 /* verilator lint_off WIDTH */
-// `define CONFIG_DEBUG
 
 module Processor(
         input  wire clk_i,
@@ -18,23 +17,38 @@ module Processor(
         output wire [31:0] rdData_o,
         output wire [4:0]  rs1Id_o,
         output wire [4:0]  rs2Id_o,
-        // Memory Mapped IO
-        output wire [31:0] IO_memAddr_o,
-        input  wire [31:0] IO_memRData_i,
-        output wire [31:0] IO_memWData_o,
-        output wire        IO_memWr_o,
         // Control and Status Registers
         output wire [11:0] csrWAddr_o,
         output wire [31:0] csrWData_o,
         output wire [11:0] csrRAddr_o,
         input  wire [31:0] csrRData_i,
-        output wire        csrInstStep_o
+        output wire        csrInstStep_o,
+        // Memory
+        output wire [31:0] IMemAddr_o,
+        input  wire [31:0] IMemData_i,
+        output wire [31:0] DMemRAddr_o,
+        input  wire [31:0] DMemRData_i,
+        output wire [31:0] DMemWAddr_o,
+        output wire [31:0] DMemWData_o,
+        output wire [3:0]  DMemWMask_o,
+        // Memory Mapped IO
+        output wire [31:0] IO_memAddr_o,
+        input  wire [31:0] IO_memRData_i,
+        output wire [31:0] IO_memWData_o,
+        output wire        IO_memWr_o
 );
 
 /*
  * Used RISC-V ISM Volume I: Version 20250508, Ch. 35, Page 609
- * The 11 RISC-V opcodes
- * ----------------------------------
+ * The RISC-V (RV32G) opcodes inst[6:2] (inst[1:0]=11)
+ * | inst[6:5] |   000  |   001  |   010  |   011  |   100  |   101  |
+ * +-----------+--------+--------+--------+--------+--------+--------+
+ * |        00 | LOAD   | FLOAD  |        | FENCE  | ALUImm | AUIPC  |
+ * |        01 | STORE  | FSTORE |        | AMO    | ALUreg | LUI    |
+ * |        10 | FMADD  | FMSUB  | FNMSUB | FNMADD | FPU    |        |
+ * |        11 | BRANCH | JALR   |        | JAL    | SYSTEM |        |
+ * +-----------+--------+--------+--------+--------+--------+--------+
+ *
  * ALUreg  // rd <- rs1 OP rs2
  * ALUimm  // rd <- rs1 OP Iimm
  * Branch  // if(rs1 OP rs2) PC<-PC+Bimm
@@ -47,22 +61,6 @@ module Processor(
  * Fence   // special
  * SYSTEM  // special
  */
-
-/******************************************************************************
- ------------------------------------MEMORY------------------------------------
- ******************************************************************************/
-
-reg [31:0] PROGROM [0:16383];
-initial begin $readmemh("../bin/ROM.hex",PROGROM); end
-
-wire [31:0] PROGROM_Addr;
-wire [31:0] PROGROM_Data = PROGROM[PROGROM_Addr[31:2]];
-
-reg [31:0] DATARAM [0:16383];
-initial begin $readmemh("../bin/RAM.hex",DATARAM); end
-
-wire [31:0] DATARAM_Addr;
-wire [31:0] DATARAM_Data = DATARAM[DATARAM_Addr[31:2]];
 
 /******************************************************************************
  -------------------------------CONTROL SIGNALS--------------------------------
@@ -99,9 +97,9 @@ assign M_flush = aluBusy;
  ----------------------------------FETCH UNIT----------------------------------
  ******************************************************************************/
 /* Inputs:                      Outputs:
- *      clk_i                           PROGROM_Addr
+ *      clk_i                           IMemAddr
  *      reset_i                         FD_PC
- *      PROGROM_Data                    FD_instr
+ *      IMemData                    FD_instr
  *      F_stall                         FD_nop
  *      D_flush
  *      D_predictPC
@@ -117,11 +115,11 @@ wire [31:0] F_PC =
         EM_correctPC ? EM_PCcorrection :
                              PC;
 
-assign PROGROM_Addr = F_PC;
+assign IMemAddr_o = F_PC;
 
 always @(posedge clk_i) begin
         if (!F_stall) begin
-                FD_instr <= PROGROM_Data;
+                FD_instr <= IMemData_i;
                 FD_PC <= F_PC;
                 PC <= F_PC + 4;
         end
@@ -531,7 +529,7 @@ wire [31:0] E_result =
 // Memory access address
 wire [31:0] E_addr =
         DE_isStore ? E_rs1 + DE_Simm : E_rs1 + DE_Iimm;
-assign DATARAM_Addr = E_addr;
+assign DMemRAddr_o = E_addr;
 
 always @(posedge clk_i) begin
         if (!E_stall) begin
@@ -550,7 +548,7 @@ always @(posedge clk_i) begin
                 EM_rs2 <= E_rs2;
                 EM_Eresult <= E_result;
                 EM_addr <= E_addr;
-                EM_Mdata <= DATARAM_Data;
+                EM_Mdata <= DMemRData_i;
                 EM_correctPC <= E_correctPC;
                 EM_PCcorrection <= E_PCcorrection;
                 EM_wbEnable <= DE_wbEnable && (DE_rdId != 0);
@@ -634,16 +632,9 @@ assign IO_memAddr_o  = EM_addr;
 assign IO_memWr_o    = EM_isStore && M_isIO;
 assign IO_memWData_o = EM_rs2;
 
-wire [3:0] M_wmask = 
-        {4{EM_isStore & M_isRAM}} & M_storeMask;
-
-wire [29:0] M_wordAddr = EM_addr[31:2];
-always @(posedge clk_i) begin
-        if (M_wmask[0]) DATARAM[M_wordAddr][ 7:0 ] <= M_storeData[ 7:0 ];
-        if (M_wmask[1]) DATARAM[M_wordAddr][15:8 ] <= M_storeData[15:8 ];
-        if (M_wmask[2]) DATARAM[M_wordAddr][23:16] <= M_storeData[23:16];
-        if (M_wmask[3]) DATARAM[M_wordAddr][31:24] <= M_storeData[31:24];
-end
+assign DMemWAddr_o = EM_addr;
+assign DMemWData_o = M_storeData;
+assign DMemWMask_o = {4{EM_isStore & M_isRAM}} & M_storeMask;
 
 /*----------------------LOAD----------------------*/
 wire [15:0] M_memHalf = EM_addr[1] ? EM_Mdata[31:16] : EM_Mdata[15:0];
@@ -751,118 +742,6 @@ assign rdId_o = MW_wbEnable ? MW_rdId : 5'b0;
                 end
                 if(HALT) $finish();
         end
-
-        `ifdef CONFIG_DEBUG
-                always @(posedge clk_i) begin
-                        if(!reset_i & !HALT) begin
-
-                                $write("     ");
-                                $write("[W] PC=%h ", MW_PC);
-                                $write("     ");
-                                riscv_disasm(MW_instr,MW_PC);
-                                if(wbEnable) $write(
-                                        "    x%0d <- 0x%0h (%0d)",
-                                        riscv_disasm_rdId(MW_instr),wbData,wbData
-                                );
-                                $write("\n");
-
-                                $write("(  ) ");
-                                $write("[M] PC=%h ", EM_PC);
-                                $write("     ");
-                                riscv_disasm(EM_instr,EM_PC);
-                                $write("\n");
-
-                                $write("( %c) ", E_flush ? "f":" ");
-                                $write("[E] PC=%h ", DE_PC);
-
-                                // Register forwarding
-                                if(DE_nop) $write("[  ] ");
-                                else $write("[%s%s] ",
-                                        riscv_disasm_readsRs1(DE_instr) ?
-                                        (EMfwd_rs1 ? "M" : EWfwd_rs1 ? "W" : " ") : " ",
-                                        riscv_disasm_readsRs2(DE_instr) ?
-                                        (EMfwd_rs2 ? "M" : EWfwd_rs2 ? "W" : " ") : " "
-                                );
-                                riscv_disasm(DE_instr,DE_PC);
-                                if(DE_instr != NOP) begin
-                                        $write("  rs1=0x%h (%0d) rs2=0x%h (%0d) ",E_rs1,E_rs1,E_rs2,E_rs2);
-                                        `ifdef CONFIG_PC_PREDICT
-                                                if(riscv_disasm_isBranch(DE_instr)) begin
-                                                        $write(" taken:%0d  %s",
-                                                                E_takeBranch,
-                                                                (E_takeBranch == DE_predictBranch) ?
-                                                                "predict hit" : "predict miss"
-                                                        );
-                                                end
-                                        `endif
-                                end
-                                $write("\n");
-
-                                $write("(%c%c) ",D_stall ? "s":" ",D_flush ? "f":" ");
-                                $write("[D] PC=%h ", FD_PC);
-                                $write("[%s%s] ",
-                                        dataHazard && rs1Hazard?"*":" ",
-                                        dataHazard && rs2Hazard?"*":" ");
-                                riscv_disasm(FD_nop ? NOP : FD_instr,FD_PC);
-                                `ifdef CONFIG_PC_PREDICT
-                                        if(riscv_disasm_isBranch(FD_instr)) begin
-                                                $write(" predict taken:%0d",D_predictBranch);
-                                        end
-                                `endif
-                                $write("\n");
-
-                                $write("(%c ) ",F_stall ? "s":" ");
-                                $write("[F] PC=%h ", F_PC);
-                                `ifdef CONFIG_PC_PREDICT
-                                        if(D_predictPC) begin
-                                                $write(" PC <- [D] 0x%0h (prediction)",D_PCprediction);
-                                        end
-                                `endif
-                                if(EM_correctPC) begin
-                                        $write(" PC <- [E] 0x%0h (correction)",EM_PCcorrection);
-                                end
-                                $write("\n");
-
-                                $display("");
-                        end
-                end
-
-                /* "debugger" */
-
-                // wire breakpoint = 1'b0; // no breakpoint
-                // wire breakpoint = (EM_addr == 32'h400004); // break on LEDs output
-                wire breakpoint = (EM_addr == 32'h400008); // break on character output
-                // wire breakpoint = (DE_PC   == 32'h000000); // break on address reached
-
-                reg step = 1'b1;
-                reg [31:0] dbg_cmd = 0;
-
-                initial begin
-                        $display("");
-                        $display("\"Debugger\" commands:");
-                        $display("--------------------");
-                        $display("g       : go");
-                        $display("<return>: step");
-                        $display("see \"debugger\" section in source for breakpoints");
-                        $display("");
-                end
-
-                always @(posedge clk_i) begin
-                        if(!reset_i & !HALT) begin
-                                if(step) begin
-                                        $write("DBG>");
-                                        dbg_cmd <= $c32("getchar()");
-                                        $write("\n");
-                                end
-                                if(dbg_cmd == "g") begin
-                                        step <= 1'b0;
-                                end
-                                if(breakpoint) begin
-                                        step <= 1'b1;
-                                end
-                        end
-                end
-        `endif // `CONFIG_DEBUG
 `endif
 
 endmodule
