@@ -48,23 +48,23 @@ public:
         }
 };
 
-void printStatusReport(SOC_TB *tb) {
-        printf("\n\nSimulated processor's report\n");
-        printf("----------------------------\n");
-        printf("Branch hit = %3.3f\%%\n", nbBranchHit*100.0/nbBranch);
-        printf("JALR   hit = %3.3f\%%\n", nbJALRhit*100.0/nbJALR);
-        printf("Load hzrds = %3.3f\%%\n", nbLoadHazard*100.0/nbLoad);
-        printf("CPI        = %3.3f\n",(cycle*1.0)/(instret*1.0));
-        printf("Instr. mix = (");
-        printf("Branch:%3.3f\%%",    nbBranch*100.0/instret);
-        printf(" JAL:%3.3f\%%",       nbJAL*100.0/instret);
-        printf(" JALR:%3.3f\%%",      nbJALR*100.0/instret);
-        printf(" Load:%3.3f\%%",      nbLoad*100.0/instret);
-        printf(" Store:%3.3f\%%",     nbStore*100.0/instret);
-        printf(" MUL(HSU):%3.3f\%% ", nbMUL*100.0/instret);
-        printf(" DIV/REM:%3.3f\%% ",   nbDIV*100.0/instret);
-        printf(")\n");
-}
+// void printStatusReport(SOC_TB *tb) {
+//         printf("\n\nSimulated processor's report\n");
+//         printf("----------------------------\n");
+//         printf("Branch hit = %3.3f\%%\n", nbBranchHit*100.0/nbBranch);
+//         printf("JALR   hit = %3.3f\%%\n", nbJALRhit*100.0/nbJALR);
+//         printf("Load hzrds = %3.3f\%%\n", nbLoadHazard*100.0/nbLoad);
+//         printf("CPI        = %3.3f\n",(cycle*1.0)/(instret*1.0));
+//         printf("Instr. mix = (");
+//         printf("Branch:%3.3f\%%",    nbBranch*100.0/instret);
+//         printf(" JAL:%3.3f\%%",       nbJAL*100.0/instret);
+//         printf(" JALR:%3.3f\%%",      nbJALR*100.0/instret);
+//         printf(" Load:%3.3f\%%",      nbLoad*100.0/instret);
+//         printf(" Store:%3.3f\%%",     nbStore*100.0/instret);
+//         printf(" MUL(HSU):%3.3f\%% ", nbMUL*100.0/instret);
+//         printf(" DIV/REM:%3.3f\%% ",   nbDIV*100.0/instret);
+//         printf(")\n");
+// }
 
 int main(int argc, char **argv) {
         // Initialize Verilators variables
@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
                 // tb->m_core->RXD = (*uart)(tb->m_core->TXD);
                 // clocks++;
         }
-        printStatusReport(tb);
+        // printStatusReport(tb);
 
         delete tb;
         return 0;

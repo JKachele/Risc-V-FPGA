@@ -19,13 +19,14 @@ LDFLAGS := -m elf32lriscv -nostdlib --no-relax
 LDFLAGS += -L$(RV_LIB_DIR) -lm $(GCC_LIB_DIR)/libgcc.a
 
 # Verilog
-VSRC := src/pipeline/SOC.v
-TOP := SOC
-XDC := src/Extern/NexusA7.xdc
+VSRC := $(wildcard src/Modular/*.v) $(wildcard src/Modular/*/*.v)
+VSRC += $(wildcard src/Extern/*.v)
+TOP  := SOC
+XDC  := src/Extern/NexusA7.xdc
 
 # Simulation
 TB := verilator
-TBFLAGS := -DBENCH -Wno-fatal -Isrc -Isrc/pipeline -Isrc/Extern
+TBFLAGS := -DBENCH -Wno-fatal
 TBFLAGS += --top-module $(TOP) --trace -cc -exe #--build
 TBSRC := $(wildcard tb/*.cpp)
 
