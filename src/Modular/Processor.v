@@ -44,7 +44,7 @@ module Processor(
 /******************************************************************************
  -------------------------------CONTROL SIGNALS--------------------------------
  ******************************************************************************/
-
+/*verilator public_flat_rw_on*/
 wire HALT;
 wire F_stall;
 wire D_stall;
@@ -55,6 +55,7 @@ wire M_flush;
 wire dataHazard;
 wire D_predictPC;
 wire [31:0] D_PCprediction;
+/*verilator public_off*/
 
 ControlUnit control(
         .HALT_i(HALT),
@@ -360,60 +361,6 @@ WriteBackUnit writeback(
         .MW_wbData_i(MW_wbData),
         .MW_wbEnable_i(MW_wbEnable)
 );
-
-/*----------------------------------------------------------------------------*/
-`ifdef BENCH
-        // `include "../Extern/riscv_disassembly.v"
-        // integer nbBranch = 0;
-        // integer nbBranchHit = 0;
-        // integer nbJAL  = 0;
-        // integer nbJALR = 0;
-        // integer nbJALRhit = 0;
-        // integer nbLoad = 0;
-        // integer nbStore = 0;
-        // integer nbLoadHazard = 0;
-        // integer nbRV32M = 0;
-        // integer nbMUL = 0;
-        // integer nbDIV = 0;
-
-        always @(posedge clk_i) begin
-                // if(!reset_i & !D_stall) begin
-                //         if(riscv_disasm_isBranch(DE_instr)) begin
-                //                 nbBranch <= nbBranch + 1;
-                //                 if(E_takeBranch == DE_predictBranch) begin
-                //                         nbBranchHit <= nbBranchHit + 1;
-                //                 end
-                //         end
-                //         if(riscv_disasm_isJAL(DE_instr)) begin
-                //                 nbJAL <= nbJAL + 1;
-                //         end
-                //         if(riscv_disasm_isJALR(DE_instr)) begin
-                //                 nbJALR <= nbJALR + 1;
-                //                 if(DE_predictRA == E_JALRaddr) begin
-                //                         nbJALRhit <= nbJALRhit + 1;
-                //                 end
-                //         end
-                // end
-                //
-                // if(riscv_disasm_isLoad(MW_instr)) begin
-                //         nbLoad <= nbLoad + 1;
-                // end
-                // if(riscv_disasm_isStore(MW_instr)) begin
-                //         nbStore <= nbStore + 1;
-                // end
-                // if(riscv_disasm_isRV32M(MW_instr)) begin
-                //         if(MW_instr[14]) begin
-                //                 nbDIV <= nbDIV + 1;
-                //         end else begin
-                //                 nbMUL <= nbMUL + 1;
-                //         end
-                // end
-                // if(dataHazard) begin
-                //         nbLoadHazard <= nbLoadHazard + 1;
-                // end
-                if(HALT) $finish();
-        end
-`endif
 
 endmodule
 

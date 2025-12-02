@@ -1,10 +1,12 @@
 #include <verilated_vcd_c.h>
+#include "VSOC___024root.h"
 
 template<class MODULE> class TESTB {
 public:
         VerilatedVcdC *m_trace;
         unsigned long m_tickcount;
         MODULE *m_core;
+        VSOC___024root* rootp;
 
         TESTB(void) {
                 m_core = new MODULE();
@@ -12,6 +14,7 @@ public:
                 m_tickcount = 01;
                 m_core->CLK = 0;
                 m_core->eval();
+                rootp = m_core->rootp;
         }
 
         virtual ~TESTB(void) {

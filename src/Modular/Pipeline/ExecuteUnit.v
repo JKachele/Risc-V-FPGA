@@ -217,7 +217,8 @@ wire E_takeBranch =
         (DE_funct3_is_i[7] & !E_LTU) ; // BGEU
 assign E_takeBranch_o = E_takeBranch;
 
-wire [31:0] E_JALRaddr = {E_aluPlus[31:1],1'b0};
+wire [31:0] E_JALRaddr/*verilator public_flat_rw*/;
+assign E_JALRaddr = {E_aluPlus[31:1],1'b0};
 
 wire E_correctPC = (
         (DE_isJALR_i    && (DE_predictRA_i != E_JALRaddr)   ) ||
