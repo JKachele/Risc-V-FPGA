@@ -14,8 +14,8 @@ CC := $(RVTOOL_PREFIX)-gcc
 LD := $(RVTOOL_PREFIX)-ld
 OBJCOPY := $(RVTOOL_PREFIX)-objcopy
 CFLAGS := -march=$(RVARCH) -mabi=$(RVABI) -Wno-builtin-declaration-mismatch
-CFLAGS += -nostdlib -fno-pic -fno-stack-protector -w -Wl,--no-relax 
-LDFLAGS := -m elf32lriscv -nostdlib --no-relax
+CFLAGS += -nostdlib -fno-pic -fno-stack-protector -w
+LDFLAGS := -m elf32lriscv -nostdlib
 LDFLAGS += -L$(RV_LIB_DIR) -lm $(GCC_LIB_DIR)/libgcc.a
 
 # Verilog

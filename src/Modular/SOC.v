@@ -5,6 +5,7 @@
  *Author--------Justin Kachele
  *Created-------Monday Nov 17, 2025 20:09:00 UTC
  ************************************************/
+/* verilator lint_off WIDTH */
 // `include "../Extern/Clockworks.v"
 // `include "Processor.v"
 // `include "RegisterFile.v"
@@ -26,10 +27,10 @@ wire reset;
 // Registers
 wire [31:0] rs1Data;
 wire [31:0] rs2Data;
-wire [4:0]  rdId;
+wire [5:0]  rdId;
 wire [31:0] rdData;
-wire [4:0]  rs1Id;
-wire [4:0]  rs2Id;
+wire [5:0]  rs1Id;
+wire [5:0]  rs2Id;
 
 // CSR
 wire [11:0] csrWAddr;
@@ -131,4 +132,5 @@ Clockworks CW(
 );
 
 endmodule
+/* verilator lint_on WIDTH */
 
