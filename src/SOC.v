@@ -6,12 +6,6 @@
  *Created-------Monday Nov 17, 2025 20:09:00 UTC
  ************************************************/
 /* verilator lint_off WIDTH */
-// `include "../Extern/Clockworks.v"
-// `include "Processor.v"
-// `include "RegisterFile.v"
-// `include "CSR_RegFile.v"
-// `include "Memory.v"
-// `include "IO.v"
 
 module SOC (
         input  wire CLK,
@@ -27,10 +21,12 @@ wire reset;
 // Registers
 wire [31:0] rs1Data;
 wire [31:0] rs2Data;
+wire [31:0] rs3Data;
 wire [5:0]  rdId;
 wire [31:0] rdData;
 wire [5:0]  rs1Id;
 wire [5:0]  rs2Id;
+wire [5:0]  rs3Id;
 
 // CSR
 wire [11:0] csrWAddr;
@@ -59,10 +55,12 @@ Processor CPU(
         .reset_i(reset),
         .rs1Data_i(rs1Data),
         .rs2Data_i(rs2Data),
+        .rs3Data_i(rs3Data),
         .rdId_o(rdId),
         .rdData_o(rdData),
         .rs1Id_o(rs1Id),
         .rs2Id_o(rs2Id),
+        .rs3Id_o(rs3Id),
         .csrWAddr_o(csrWAddr), 
         .csrWData_o(csrWData),
         .csrRAddr_o(csrRAddr),
@@ -88,8 +86,10 @@ RegisterFile registers(
         .rdData_i(rdData),
         .rs1Id_i(rs1Id),
         .rs2Id_i(rs2Id),
+        .rs3Id_i(rs3Id),
         .rs1Data_o(rs1Data),
-        .rs2Data_o(rs2Data)
+        .rs2Data_o(rs2Data),
+        .rs3Data_o(rs3Data)
 );
 
 CSR_RegFile csr(

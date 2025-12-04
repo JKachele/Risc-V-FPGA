@@ -9,6 +9,7 @@
 #include <stdarg.h>
 
 extern void putchar(char c);
+extern void printf_fp(unsigned long long val);
 
 void print_string(const char* s) {
         for(const char* p = s; *p; ++p) {
@@ -61,6 +62,7 @@ int printf(const char *fmt,...)
                         if(*fmt=='s') print_string(va_arg(ap,char *));
                         else if(*fmt=='x') print_hex(va_arg(ap,int));
                         else if(*fmt=='d') print_dec(va_arg(ap,int));
+                        else if(*fmt=='f') printf_fp(va_arg(ap,long long));
                         else if(*fmt=='c') putchar(va_arg(ap,int));	   
                         else putchar(*fmt);
                 }

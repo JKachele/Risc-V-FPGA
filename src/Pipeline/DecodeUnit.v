@@ -113,10 +113,10 @@ wire [2:0] D_funct3 = FD_instr_i[14:12];
 wire [6:0] D_funct7 = FD_instr_i[31:25];
 
 // Source and dest registers
-wire [4:0] D_rdId  = FD_instr_i[11:7];
-wire [4:0] D_rs1Id = FD_instr_i[19:15];
-wire [4:0] D_rs2Id = FD_instr_i[24:20];
-wire [4:0] D_rs3Id = FD_instr_i[31:27]; // For FMA ops
+wire [4:0] D_raw_rdId  = FD_instr_i[11:7];
+wire [4:0] D_raw_rs1Id = FD_instr_i[19:15];
+wire [4:0] D_raw_rs2Id = FD_instr_i[24:20];
+wire [4:0] D_raw_rs3Id = FD_instr_i[31:27]; // For FMA ops
 
 // Immediate Values
 wire [31:0] D_Iimm =
@@ -137,11 +137,18 @@ wire [11:0] D_csrId = FD_instr_i[31:20];
 
 wire D_readsRs1 = !(D_isJAL || D_isLUI || D_isAUIPC);
 
-wire D_readsRs2 = (FD_instr_i[5] && (FD_instr_i[3:2] == 2'b00));
+wire D_readsRs2 = (D_isStore || D_isBranch || D_isALUR || D_isFPU);
 
 wire D_isRV32M = D_isALUR  & FD_instr_i[25];
 wire D_isMUL   = D_isRV32M & !FD_instr_i[14];
 wire D_isDIV   = D_isRV32M &  FD_instr_i[14];
+
+// rd is a FP reg if op is FLW, FMA, R-Type FPU, FCVT.S.W(U), or FMV.W.X
+wire D_rdIsFP = (FD_instr_i[6:2] == 5'b00001)  || // FLW
+        (FD_instr_i[6:4] == 3'b101)            || // FMA F(N)MADD / F(N)MSUB
+        (D_isFPU) && ((FD_instr_i[31] == 1'b0) || // R-Type FPU Instr
+        (FD_instr_i[31:28] == 4'b1101)         || // FCVT.S.W(U)
+        (FD_instr_i[31:28] == 4'b1111));          // FMV.W.X
 
 // rs1 is a FP reg if op is FPU except for FCVT.S.W(U) and FMV.W.X
 wire D_rs1IsFP = D_isFPU &&
@@ -152,12 +159,11 @@ wire D_rs1IsFP = D_isFPU &&
 // rs2 is a FP reg if op is FPU or FSW
 wire D_rs2IsFP = D_isFPU || (D_isStore && FD_instr_i[2]);
 
-// rd is a FP reg if op is FLW, FMA, R-Type FPU, FCVT.S.W(U), or FMV.W.X
-wire D_rdIsFP = (FD_instr_i[6:2] == 5'b00001)  || // FLW
-        (FD_instr_i[6:4] == 3'b101)            || // FMA F(N)MADD / F(N)MSUB
-        (D_isFPU) && ((FD_instr_i[31] == 1'b0) || // R-Type FPU Instr
-        (FD_instr_i[31:28] == 4'b1101)         || // FCVT.S.W(U)
-        (FD_instr_i[31:28] == 4'b1111));          // FMV.W.X
+// Floating Point Registers are encoded with id[5] == 1
+wire [5:0] D_rdId =  {D_rdIsFP , D_raw_rdId };
+wire [5:0] D_rs1Id = {D_rs1IsFP, D_raw_rs1Id};
+wire [5:0] D_rs2Id = {D_rs2IsFP, D_raw_rs2Id};
+wire [5:0] D_rs3Id = {1'b1     , D_raw_rs3Id};
 
 /*----------------BRANCH PREDICTION---------------*/
 reg [1:0] BHT[BHT_SIZE-1:0]; // Branch History Table
@@ -234,11 +240,10 @@ always @(posedge clk_i) begin
                 DE_isCSR_o    <= D_isCSR;
                 DE_isFPU_o    <= D_isFPU;
 
-                // Floating Point Registers are encoded with id[5] == 1
-                DE_rdId_o  <= {D_rdIsFP , D_rdId};
-                DE_rs1Id_o <= {D_rs1IsFP, D_rs1Id};
-                DE_rs2Id_o <= {D_rs1IsFP, D_rs2Id};
-                DE_rs3Id_o <= {1'b1     , D_rs3Id};
+                DE_rdId_o  <= D_rdId;
+                DE_rs1Id_o <= D_rs1Id;
+                DE_rs2Id_o <= D_rs2Id;
+                DE_rs3Id_o <= D_rs3Id;
                 DE_csrId_o <= D_csrId;
 
                 DE_funct3_o <= D_funct3;

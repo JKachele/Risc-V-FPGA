@@ -5,8 +5,6 @@
  *Author--------Justin Kachele
  *Created-------Monday Dec 01, 2025 16:48:14 UTC
  ************************************************/
-// `include "../Extern/LedDim.v"
-// `include "../Extern/txuart.v"
 
 module IO (
         input  wire        clk_i,

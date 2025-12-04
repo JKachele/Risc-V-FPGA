@@ -98,17 +98,17 @@ initial begin
 end
 
 // Set procedure to run based off decoded instruction
-reg [7:0] fpmprog;
-always @(*) begin
-        case(1'b1)
-                isFADD  | isFSUB                        : fpmprog = FPMPROG_ADD;
-                isFMUL                                  : fpmprog = FPMPROG_MUL;
-                isFMADD | isFMSUB | isFNMADD | isFNMSUB : fpmprog = FPMPROG_MUL;
-        endcase
-end
+reg [6:0] fpmprog;
+// always @(*) begin
+//         case(1'b1)
+//                 isFADD  | isFSUB                        : fpmprog = FPMPROG_ADD;
+//                 isFMUL                                  : fpmprog = FPMPROG_MUL;
+//                 isFMADD | isFMSUB | isFNMADD | isFNMSUB : fpmprog = FPMPROG_MUL;
+//         endcase
+// end
 
 // Micro Instruction State Machine
-reg [7:0]         fpmi_PC;
+reg [6:0]         fpmi_PC;
 reg [FPMI_BITS:0] fpmi_instr;
 (* onehot *)
 wire [FPMI_NUM_STATES-1:0] fpmi_is = 1 << fpmi_instr[FPMI_BITS-1:0];
@@ -116,49 +116,49 @@ wire [FPMI_NUM_STATES-1:0] fpmi_is = 1 << fpmi_instr[FPMI_BITS-1:0];
 initial fpmi_PC = FPMI_READY;
 assign busy_o = !fpmi_is[FPMI_READY];
 
-wire [7:0] fpmi_next_pc =
+wire [6:0] fpmi_next_PC =
         fpuEnable_i               ? fpmprog :
         fpmi_instr[FPMI_EXIT_BIT] ? 0       : fpmi_PC + 1;;
 
 always @(posedge clk_i) begin
-        fpmi_PC <= fpmi_next_pc;
+        fpmi_PC <= fpmi_next_PC;
         fpmi_instr <= FPMI_ROM[fpmi_next_PC];
 end
 
 // RV32F Instruction Decoder
-wire isFMADD   = (instr[4:2] == 3'b000);
-wire isFMSUB   = (instr[4:2] == 3'b001);
-wire isFMNSUB  = (instr[4:2] == 3'b010);
-wire isFMNADD  = (instr[4:2] == 3'b011);
-wire isFMA     = !instr[4];
+wire isFMADD   = (instr_i[4:2] == 3'b000);
+wire isFMSUB   = (instr_i[4:2] == 3'b001);
+wire isFMNSUB  = (instr_i[4:2] == 3'b010);
+wire isFMNADD  = (instr_i[4:2] == 3'b011);
+wire isFMA     = !instr_i[4];
 
-wire isFADD    = (!isFMA && (instr[31:27] == 5'b00000));
-wire isFSUB    = (!isFMA && (instr[31:27] == 5'b00001));
-wire isFMUL    = (!isFMA && (instr[31:27] == 5'b00010));
-wire isFDIV    = (!isFMA && (instr[31:27] == 5'b00011));
-wire isFSQRT   = (!isFMA && (instr[31:27] == 5'b01011));   
+wire isFADD    = (!isFMA && (instr_i[31:27] == 5'b00000));
+wire isFSUB    = (!isFMA && (instr_i[31:27] == 5'b00001));
+wire isFMUL    = (!isFMA && (instr_i[31:27] == 5'b00010));
+wire isFDIV    = (!isFMA && (instr_i[31:27] == 5'b00011));
+wire isFSQRT   = (!isFMA && (instr_i[31:27] == 5'b01011));   
 
-wire isFSGNJ   = (!isFMA && (instr[31:27]==5'b00100)&&(instr[13:12]==2'b00));
-wire isFSGNJN  = (!isFMA && (instr[31:27]==5'b00100)&&(instr[13:12]==2'b01));
-wire isFSGNJX  = (!isFMA && (instr[31:27]==5'b00100)&&(instr[13:12]==2'b10));
+wire isFSGNJ   = (!isFMA && (instr_i[31:27]==5'b00100)&&(instr_i[13:12]==2'b00));
+wire isFSGNJN  = (!isFMA && (instr_i[31:27]==5'b00100)&&(instr_i[13:12]==2'b01));
+wire isFSGNJX  = (!isFMA && (instr_i[31:27]==5'b00100)&&(instr_i[13:12]==2'b10));
 
-wire isFMIN    = (!isFMA && (instr[31:27] == 5'b00101) && !instr[12]);
-wire isFMAX    = (!isFMA && (instr[31:27] == 5'b00101) &&  instr[12]);
+wire isFMIN    = (!isFMA && (instr_i[31:27] == 5'b00101) && !instr_i[12]);
+wire isFMAX    = (!isFMA && (instr_i[31:27] == 5'b00101) &&  instr_i[12]);
 
-wire isFEQ     = (!isFMA && (instr[31:27]==5'b10100) && (instr[13:12] == 2'b10));
-wire isFLT     = (!isFMA && (instr[31:27]==5'b10100) && (instr[13:12] == 2'b01));
-wire isFLE     = (!isFMA && (instr[31:27]==5'b10100) && (instr[13:12] == 2'b00));
+wire isFEQ     = (!isFMA && (instr_i[31:27]==5'b10100) && (instr_i[13:12] == 2'b10));
+wire isFLT     = (!isFMA && (instr_i[31:27]==5'b10100) && (instr_i[13:12] == 2'b01));
+wire isFLE     = (!isFMA && (instr_i[31:27]==5'b10100) && (instr_i[13:12] == 2'b00));
 
-wire isFCLASS  = (!isFMA && (instr[31:27] == 5'b11100) &&  instr[12]); 
+wire isFCLASS  = (!isFMA && (instr_i[31:27] == 5'b11100) &&  instr_i[12]); 
 
-wire isFCVTWS  = (!isFMA && (instr[31:27] == 5'b11000) && !instr[20]);
-wire isFCVTWUS = (!isFMA && (instr[31:27] == 5'b11000) &&  instr[20]);
+wire isFCVTWS  = (!isFMA && (instr_i[31:27] == 5'b11000) && !instr_i[20]);
+wire isFCVTWUS = (!isFMA && (instr_i[31:27] == 5'b11000) &&  instr_i[20]);
 
-wire isFCVTSW  = (!isFMA && (instr[31:27] == 5'b11010) && !instr[20]);
-wire isFCVTSWU = (!isFMA && (instr[31:27] == 5'b11010) &&  instr[20]);
+wire isFCVTSW  = (!isFMA && (instr_i[31:27] == 5'b11010) && !instr_i[20]);
+wire isFCVTSWU = (!isFMA && (instr_i[31:27] == 5'b11010) &&  instr_i[20]);
 
-wire isFMVXW   = (!isFMA && (instr[31:27] == 5'b11100) && !instr[12]);
-wire isFMVWX   = (!isFMA && (instr[31:27] == 5'b11110));
+wire isFMVXW   = (!isFMA && (instr_i[31:27] == 5'b11100) && !instr_i[12]);
+wire isFMVWX   = (!isFMA && (instr_i[31:27] == 5'b11110));
 
 endmodule
 

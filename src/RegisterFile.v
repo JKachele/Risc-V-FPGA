@@ -13,8 +13,10 @@ module RegisterFile (
         input  wire [31:0] rdData_i,
         input  wire [5:0]  rs1Id_i,
         input  wire [5:0]  rs2Id_i,
+        input  wire [5:0]  rs3Id_i,
         output wire [31:0] rs1Data_o,
-        output wire [31:0] rs2Data_o
+        output wire [31:0] rs2Data_o,
+        output wire [31:0] rs3Data_o
 );
 
 reg [31:0] reg_1;
@@ -249,6 +251,7 @@ end
 // Asynchronus Register Read
 reg [31:0] rs1Data;
 reg [31:0] rs2Data;
+reg [31:0] rs3Data;
 always @(*) begin
         case (rs1Id_i[4:0])
                 5'd1:  rs1Data = rs1Id_i[5] ? reg_F1  : reg_1;
@@ -319,9 +322,45 @@ always @(*) begin
                 5'd31: rs2Data = rs2Id_i[5] ? reg_F31 : reg_31;
                 default: rs2Data = 32'h00000000;
         endcase
+
+        case (rs3Id_i[4:0])
+                5'd1:  rs3Data = rs3Id_i[5] ? reg_F1  : reg_1;
+                5'd2:  rs3Data = rs3Id_i[5] ? reg_F2  : reg_2;
+                5'd3:  rs3Data = rs3Id_i[5] ? reg_F3  : reg_3;
+                5'd4:  rs3Data = rs3Id_i[5] ? reg_F4  : reg_4;
+                5'd5:  rs3Data = rs3Id_i[5] ? reg_F5  : reg_5;
+                5'd6:  rs3Data = rs3Id_i[5] ? reg_F6  : reg_6;
+                5'd7:  rs3Data = rs3Id_i[5] ? reg_F7  : reg_7;
+                5'd8:  rs3Data = rs3Id_i[5] ? reg_F8  : reg_8;
+                5'd9:  rs3Data = rs3Id_i[5] ? reg_F9  : reg_9;
+                5'd10: rs3Data = rs3Id_i[5] ? reg_F10 : reg_10;
+                5'd11: rs3Data = rs3Id_i[5] ? reg_F11 : reg_11;
+                5'd12: rs3Data = rs3Id_i[5] ? reg_F12 : reg_12;
+                5'd13: rs3Data = rs3Id_i[5] ? reg_F13 : reg_13;
+                5'd14: rs3Data = rs3Id_i[5] ? reg_F14 : reg_14;
+                5'd15: rs3Data = rs3Id_i[5] ? reg_F15 : reg_15;
+                5'd16: rs3Data = rs3Id_i[5] ? reg_F16 : reg_16;
+                5'd17: rs3Data = rs3Id_i[5] ? reg_F17 : reg_17;
+                5'd18: rs3Data = rs3Id_i[5] ? reg_F18 : reg_18;
+                5'd19: rs3Data = rs3Id_i[5] ? reg_F19 : reg_19;
+                5'd20: rs3Data = rs3Id_i[5] ? reg_F20 : reg_20;
+                5'd21: rs3Data = rs3Id_i[5] ? reg_F21 : reg_21;
+                5'd22: rs3Data = rs3Id_i[5] ? reg_F22 : reg_22;
+                5'd23: rs3Data = rs3Id_i[5] ? reg_F23 : reg_23;
+                5'd24: rs3Data = rs3Id_i[5] ? reg_F24 : reg_24;
+                5'd25: rs3Data = rs3Id_i[5] ? reg_F25 : reg_25;
+                5'd26: rs3Data = rs3Id_i[5] ? reg_F26 : reg_26;
+                5'd27: rs3Data = rs3Id_i[5] ? reg_F27 : reg_27;
+                5'd28: rs3Data = rs3Id_i[5] ? reg_F28 : reg_28;
+                5'd29: rs3Data = rs3Id_i[5] ? reg_F29 : reg_29;
+                5'd30: rs3Data = rs3Id_i[5] ? reg_F30 : reg_30;
+                5'd31: rs3Data = rs3Id_i[5] ? reg_F31 : reg_31;
+                default: rs3Data = 32'h00000000;
+        endcase
 end
 assign rs1Data_o = rs1Data;
 assign rs2Data_o = rs2Data;
+assign rs3Data_o = rs3Data;
 
 endmodule
 

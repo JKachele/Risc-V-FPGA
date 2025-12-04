@@ -9,7 +9,9 @@
 #include <stdio.h>
 
 int main(void) {
-    printf("Hello, World!\n");
+    // printf("Hello, World!\n");
+    float f = 123.456;
+    printf("%f\n", f);
     return 0;
 }
 

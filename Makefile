@@ -13,6 +13,7 @@ GCC_LIB_DIR := /opt/riscv/lib/gcc/riscv64-unknown-elf/10.1.0/$(RVARCH)/$(RVABI)
 CC := $(RVTOOL_PREFIX)-gcc
 LD := $(RVTOOL_PREFIX)-ld
 OBJCOPY := $(RVTOOL_PREFIX)-objcopy
+OBJDUMP := $(RVTOOL_PREFIX)-objdump
 CFLAGS := -march=$(RVARCH) -mabi=$(RVABI) -Wno-builtin-declaration-mismatch
 CFLAGS += -nostdlib -fno-pic -fno-stack-protector -w
 LDFLAGS := -m elf32lriscv -nostdlib
@@ -33,7 +34,7 @@ BIN_DIR := bin
 BUILD_DIR := build
 
 # Firmware
-SRC := firmware/startPipeline.S firmware/raystones.c
+SRC := firmware/startPipeline.S firmware/Hello.c
 SRC += $(wildcard firmware/libs/*.S) $(wildcard firmware/libs/*.c) 
 OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
 LDSCRIPT = firmware/ram.ld
@@ -59,6 +60,7 @@ $(RAM): $(FIRMWARE)
 $(FIRMWARE): $(OBJ) Makefile
 	@mkdir -p $(dir $@)
 	$(LD) -T $(LDSCRIPT) $(OBJ) -o $@ $(LDFLAGS)
+	$(OBJDUMP) -ds $@ > $(BIN_DIR)/objdump.txt
 
 $(BUILD_DIR)/%.S.o: %.S
 	@mkdir -p $(dir $@)

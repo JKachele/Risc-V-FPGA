@@ -5,10 +5,6 @@
  *Author--------Justin Kachele
  *Created-------Monday Nov 17, 2025 20:09:17 UTC
  ************************************************/
-// `include "Pipeline/FetchUnit.v"
-// `include "Pipeline/DecodeUnit.v"
-// `include "Pipeline/ExecuteUnit.v"
-// `include "Pipeline/MemoryUnit.v"
 
 module Processor(
         input  wire clk_i,
@@ -16,10 +12,12 @@ module Processor(
         // Registers
         input  wire [31:0] rs1Data_i,
         input  wire [31:0] rs2Data_i,
+        input  wire [31:0] rs3Data_i,
         output wire [5:0]  rdId_o,
         output wire [31:0] rdData_o,
         output wire [5:0]  rs1Id_o,
         output wire [5:0]  rs2Id_o,
+        output wire [5:0]  rs3Id_o,
         // Control and Status Registers
         output wire [11:0] csrWAddr_o,
         output wire [31:0] csrWData_o,
@@ -238,8 +236,10 @@ ExecuteUnit execute(
         .aluBusy_o(aluBusy),
         .rs1Id_o(rs1Id_o),
         .rs2Id_o(rs2Id_o),
+        .rs3Id_o(rs3Id_o),
         .rs1Data_i(rs1Data_i),
         .rs2Data_i(rs2Data_i),
+        .rs3Data_i(rs3Data_i),
         .DMemRAddr_o(DMemRAddr_o),
         .DMemRData_i(DMemRData_i),
         .MW_wbEnable_i(MW_wbEnable),

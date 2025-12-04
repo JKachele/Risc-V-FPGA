@@ -21,8 +21,10 @@ module ExecuteUnit (
         // Register File Interface
         output wire [5:0]  rs1Id_o,
         output wire [5:0]  rs2Id_o,
+        output wire [5:0]  rs3Id_o,
         input  wire [31:0] rs1Data_i,
         input  wire [31:0] rs2Data_i,
+        input  wire [31:0] rs3Data_i,
         // Memory Interface
         output wire [31:0] DMemRAddr_o,
         input  wire [31:0] DMemRData_i,
@@ -92,19 +94,25 @@ localparam NOP = 32'b0000000_00000_00000_000_00000_0110011;
 // Forward from End of Execute Unit
 wire EMfwd_rs1 = EM_wbEnable_o && (EM_rdId_o == DE_rs1Id_i);
 wire EMfwd_rs2 = EM_wbEnable_o && (EM_rdId_o == DE_rs2Id_i);
+wire EMfwd_rs3 = EM_wbEnable_o && (EM_rdId_o == DE_rs3Id_i);
 
 // Forward from End of Memory Unit
 wire EWfwd_rs1 = MW_wbEnable_i && (MW_rdId_i == DE_rs1Id_i);
 wire EWfwd_rs2 = MW_wbEnable_i && (MW_rdId_i == DE_rs2Id_i);
+wire EWfwd_rs3 = MW_wbEnable_i && (MW_rdId_i == DE_rs3Id_i);
 
 assign rs1Id_o = DE_rs1Id_i;
 assign rs2Id_o = DE_rs2Id_i;
+assign rs3Id_o = DE_rs3Id_i;
 
 wire [31:0] E_rs1 = EMfwd_rs1 ? EM_Eresult_o :
         EWfwd_rs1 ? MW_wbData_i : rs1Data_i;
 
 wire [31:0] E_rs2 = EMfwd_rs2 ? EM_Eresult_o :
         EWfwd_rs2 ? MW_wbData_i : rs2Data_i;
+
+wire [31:0] E_rs3 = EMfwd_rs3 ? EM_Eresult_o :
+        EWfwd_rs3 ? MW_wbData_i : rs3Data_i;
 
 /*---------------ADD/SUBTRACT/SHIFT---------------*/
 wire [31:0] E_aluIn1 = E_rs1;
@@ -205,9 +213,25 @@ wire [31:0] E_aluOutM =
         (  E_divsel == 3'b110 ?  EE_dividend       : 32'b0) | // REM
         (  E_divsel == 3'b111 ? -EE_dividend       : 32'b0) ; // REM Negative
 
-wire [31:0] E_aluOut = DE_isRV32M_i ? E_aluOutM : E_aluOutBase;
+/*----------------------FPU-----------------------*/
+wire E_fpuBusy;
+wire [31:0] E_fpuOut;
+FPU fpu(
+        .clk_i(clk_i),
+        .reset_i(reset_i),
+        .fpuEnable_i(DE_isFPU_i),
+        .instr_i(DE_instr_i),
+        .rs1_i(E_rs1),
+        .rs2_i(E_rs2),
+        .rs3_i(E_rs3),
+        .busy_o(E_fpuBusy),
+        .fpuOut_o(E_fpuOut)
+);
 
-assign aluBusy_o = EE_divBusy | (DE_isDIV_i & !EE_divFinished);
+wire [31:0] E_aluOut = DE_isRV32M_i ? E_aluOutM : 
+                       DE_isFPU_i   ? E_fpuOut  : E_aluOutBase;
+
+assign aluBusy_o = EE_divBusy | (DE_isDIV_i & !EE_divFinished) | E_fpuBusy;
 
 /*------------------JUMP/BRANCH-------------------*/
 wire E_takeBranch = 
