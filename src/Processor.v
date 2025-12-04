@@ -16,10 +16,10 @@ module Processor(
         // Registers
         input  wire [31:0] rs1Data_i,
         input  wire [31:0] rs2Data_i,
-        output wire [4:0]  rdId_o,
+        output wire [5:0]  rdId_o,
         output wire [31:0] rdData_o,
-        output wire [4:0]  rs1Id_o,
-        output wire [4:0]  rs2Id_o,
+        output wire [5:0]  rs1Id_o,
+        output wire [5:0]  rs2Id_o,
         // Control and Status Registers
         output wire [11:0] csrWAddr_o,
         output wire [31:0] csrWData_o,
@@ -111,10 +111,12 @@ wire        DE_isFENCE;
 wire        DE_isSYS;
 wire        DE_isEBREAK;
 wire        DE_isCSR;
+wire        DE_isFPU;
 
-wire [4:0]  DE_rdId;
-wire [4:0]  DE_rs1Id;
-wire [4:0]  DE_rs2Id;
+wire [5:0]  DE_rdId;
+wire [5:0]  DE_rs1Id;
+wire [5:0]  DE_rs2Id;
+wire [5:0]  DE_rs3Id;
 wire [11:0] DE_csrId;
 
 wire [2:0]  DE_funct3;
@@ -174,9 +176,11 @@ DecodeUnit #(
        .DE_isSYS_o(DE_isSYS),
        .DE_isEBREAK_o(DE_isEBREAK),
        .DE_isCSR_o(DE_isCSR),
+       .DE_isFPU_o(DE_isFPU),
        .DE_rdId_o(DE_rdId),
        .DE_rs1Id_o(DE_rs1Id),
        .DE_rs2Id_o(DE_rs2Id),
+       .DE_rs3Id_o(DE_rs3Id),
        .DE_csrId_o(DE_csrId),
        .DE_funct3_o(DE_funct3),
        .DE_funct3_is_o(DE_funct3_is),
@@ -204,9 +208,9 @@ wire        EM_nop;
 wire        EM_isLoad;
 wire        EM_isStore;
 wire        EM_isCSR;
-wire [4:0]  EM_rdId;
-wire [4:0]  EM_rs1Id;
-wire [4:0]  EM_rs2Id;
+wire [5:0]  EM_rdId;
+wire [5:0]  EM_rs1Id;
+wire [5:0]  EM_rs2Id;
 wire [11:0] EM_csrId;
 wire [31:0] EM_rs2;
 wire [2:0]  EM_funct3;
@@ -257,9 +261,11 @@ ExecuteUnit execute(
         .DE_isSYS_i(DE_isSYS),
         .DE_isEBREAK_i(DE_isEBREAK),
         .DE_isCSR_i(DE_isCSR),
+        .DE_isFPU_i(DE_isFPU),
         .DE_rdId_i(DE_rdId),
         .DE_rs1Id_i(DE_rs1Id),
         .DE_rs2Id_i(DE_rs2Id),
+        .DE_rs3Id_i(DE_rs3Id),
         .DE_csrId_i(DE_csrId),
         .DE_funct3_i(DE_funct3),
         .DE_funct3_is_i(DE_funct3_is),
@@ -301,7 +307,7 @@ wire [31:0] MW_PC;
 wire [31:0] MW_instr;
 wire        MW_nop;
 
-wire [4:0]  MW_rdId;
+wire [5:0]  MW_rdId;
 wire [31:0] MW_wbData;
 wire        MW_wbEnable;
 

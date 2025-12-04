@@ -44,9 +44,11 @@ module DecodeUnit #(
         output reg         DE_isSYS_o,
         output reg         DE_isEBREAK_o,
         output reg         DE_isCSR_o,
-        output reg  [4:0]  DE_rdId_o,
-        output reg  [4:0]  DE_rs1Id_o,
-        output reg  [4:0]  DE_rs2Id_o,
+        output reg         DE_isFPU_o,
+        output reg  [5:0]  DE_rdId_o,
+        output reg  [5:0]  DE_rs1Id_o,
+        output reg  [5:0]  DE_rs2Id_o,
+        output reg  [5:0]  DE_rs3Id_o,
         output reg  [11:0] DE_csrId_o,
         output reg  [2:0]  DE_funct3_o,
         output reg  [7:0]  DE_funct3_is_o,
@@ -91,19 +93,20 @@ localparam NOP = 32'b0000000_00000_00000_000_00000_0110011;
  */
 
 /*--------------INSTRUCTION DECODING--------------*/
-// 11 RISC-V OpCodes
+// 11 RV32I OpCodes
 // bits [1:0] are always 00 for all opcodes
 wire D_isLUI      = (FD_instr_i[6:2] == 5'b01101);
 wire D_isAUIPC    = (FD_instr_i[6:2] == 5'b00101);
 wire D_isJAL      = (FD_instr_i[6:2] == 5'b11011);
 wire D_isJALR     = (FD_instr_i[6:2] == 5'b11001);
 wire D_isBranch   = (FD_instr_i[6:2] == 5'b11000);
-wire D_isLoad     = (FD_instr_i[6:2] == 5'b00000);
-wire D_isStore    = (FD_instr_i[6:2] == 5'b01000);
+wire D_isLoad     = (FD_instr_i[6:3] == 4'b0000);  // instr[2]: FLW
+wire D_isStore    = (FD_instr_i[6:3] == 4'b0100);  // instr[2]: FSW
 wire D_isALUI     = (FD_instr_i[6:2] == 5'b00100);
 wire D_isALUR     = (FD_instr_i[6:2] == 5'b01100);
 wire D_isFENCE    = (FD_instr_i[6:2] == 5'b00011);
 wire D_isSYS      = (FD_instr_i[6:2] == 5'b11100);
+wire D_isFPU      = (FD_instr_i[6:5] == 2'b10);
 
 // Instruction Functions
 wire [2:0] D_funct3 = FD_instr_i[14:12];
@@ -113,6 +116,7 @@ wire [6:0] D_funct7 = FD_instr_i[31:25];
 wire [4:0] D_rdId  = FD_instr_i[11:7];
 wire [4:0] D_rs1Id = FD_instr_i[19:15];
 wire [4:0] D_rs2Id = FD_instr_i[24:20];
+wire [4:0] D_rs3Id = FD_instr_i[31:27]; // For FMA ops
 
 // Immediate Values
 wire [31:0] D_Iimm =
@@ -131,13 +135,29 @@ wire D_isEBREAK = D_isSYS & (D_funct3 == 3'b000) & FD_instr_i[20] & ~FD_instr_i[
 wire D_isCSR = D_isSYS & ((D_funct3 != 3'b000) & (D_funct3 != 3'b100));
 wire [11:0] D_csrId = FD_instr_i[31:20];
 
+wire D_readsRs1 = !(D_isJAL || D_isLUI || D_isAUIPC);
+
+wire D_readsRs2 = (FD_instr_i[5] && (FD_instr_i[3:2] == 2'b00));
+
 wire D_isRV32M = D_isALUR  & FD_instr_i[25];
 wire D_isMUL   = D_isRV32M & !FD_instr_i[14];
 wire D_isDIV   = D_isRV32M &  FD_instr_i[14];
 
-wire D_readsRs1 = !(D_isJAL || D_isLUI || D_isAUIPC);
+// rs1 is a FP reg if op is FPU except for FCVT.S.W(U) and FMV.W.X
+wire D_rs1IsFP = D_isFPU &&
+        !((FD_instr_i[4:2]   == 3'b100) && (
+          (FD_instr_i[31:28] == 4'b1100) ||     // FCVT.W.S(U)
+          (FD_instr_i[31:28] == 4'b1110)));      // FMV.X.W
 
-wire D_readsRs2 = (FD_instr_i[5] && (FD_instr_i[3:2] == 2'b00));
+// rs2 is a FP reg if op is FPU or FSW
+wire D_rs2IsFP = D_isFPU || (D_isStore && FD_instr_i[2]);
+
+// rd is a FP reg if op is FLW, FMA, R-Type FPU, FCVT.S.W(U), or FMV.W.X
+wire D_rdIsFP = (FD_instr_i[6:2] == 5'b00001)  || // FLW
+        (FD_instr_i[6:4] == 3'b101)            || // FMA F(N)MADD / F(N)MSUB
+        (D_isFPU) && ((FD_instr_i[31] == 1'b0) || // R-Type FPU Instr
+        (FD_instr_i[31:28] == 4'b1101)         || // FCVT.S.W(U)
+        (FD_instr_i[31:28] == 4'b1111));          // FMV.W.X
 
 /*----------------BRANCH PREDICTION---------------*/
 reg [1:0] BHT[BHT_SIZE-1:0]; // Branch History Table
@@ -212,10 +232,13 @@ always @(posedge clk_i) begin
                 DE_isSYS_o    <= D_isSYS;
                 DE_isEBREAK_o <= D_isEBREAK;
                 DE_isCSR_o    <= D_isCSR;
+                DE_isFPU_o    <= D_isFPU;
 
-                DE_rdId_o <= D_rdId;
-                DE_rs1Id_o <= D_rs1Id;
-                DE_rs2Id_o <= D_rs2Id;
+                // Floating Point Registers are encoded with id[5] == 1
+                DE_rdId_o  <= {D_rdIsFP , D_rdId};
+                DE_rs1Id_o <= {D_rs1IsFP, D_rs1Id};
+                DE_rs2Id_o <= {D_rs1IsFP, D_rs2Id};
+                DE_rs3Id_o <= {1'b1     , D_rs3Id};
                 DE_csrId_o <= D_csrId;
 
                 DE_funct3_o <= D_funct3;

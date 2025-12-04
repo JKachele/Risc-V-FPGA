@@ -19,8 +19,7 @@ LDFLAGS := -m elf32lriscv -nostdlib
 LDFLAGS += -L$(RV_LIB_DIR) -lm $(GCC_LIB_DIR)/libgcc.a
 
 # Verilog
-VSRC := $(wildcard src/Modular/*.v) $(wildcard src/Modular/*/*.v)
-VSRC += $(wildcard src/Extern/*.v)
+VSRC := $(wildcard src/*.v) $(wildcard src/*/*.v)
 TOP  := SOC
 XDC  := src/Extern/NexusA7.xdc
 

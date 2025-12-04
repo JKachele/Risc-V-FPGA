@@ -31,9 +31,9 @@ module MemoryUnit (
         input  wire        EM_isLoad_i,
         input  wire        EM_isStore_i,
         input  wire        EM_isCSR_i,
-        input  wire [4:0]  EM_rdId_i,
-        input  wire [4:0]  EM_rs1Id_i,
-        input  wire [4:0]  EM_rs2Id_i,
+        input  wire [5:0]  EM_rdId_i,
+        input  wire [5:0]  EM_rs1Id_i,
+        input  wire [5:0]  EM_rs2Id_i,
         input  wire [11:0] EM_csrId_i,
         input  wire [31:0] EM_rs2_i,
         input  wire [2:0]  EM_funct3_i,
@@ -47,7 +47,7 @@ module MemoryUnit (
         output reg  [31:0] MW_PC_o,
         output reg  [31:0] MW_instr_o,
         output reg         MW_nop_o,
-        output reg  [4:0]  MW_rdId_o,
+        output reg  [5:0]  MW_rdId_o,
         output reg  [31:0] MW_wbData_o,
         output reg         MW_wbEnable_o
 );
