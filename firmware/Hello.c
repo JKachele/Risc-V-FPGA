@@ -10,8 +10,10 @@
 
 int main(void) {
     // printf("Hello, World!\n");
-    float f = -9826.32185;
-    printf("%f\n", f);
+    float f = 826.32185;
+    float f2 = 62.458;
+    float f3 = f * f2;
+    printf("%f\n", f3);
     return 0;
 }
 
