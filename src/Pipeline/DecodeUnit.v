@@ -145,16 +145,16 @@ wire D_isDIV   = D_isRV32M &  FD_instr_i[14];
 
 // rd is a FP reg if op is FLW, FMA, R-Type FPU, FCVT.S.W(U), or FMV.W.X
 wire D_rdIsFP = (FD_instr_i[6:2] == 5'b00001)  || // FLW
-        (FD_instr_i[6:4] == 3'b101)            || // FMA F(N)MADD / F(N)MSUB
-        (D_isFPU) && ((FD_instr_i[31] == 1'b0) || // R-Type FPU Instr
+        (FD_instr_i[6:4] == 3'b100)            || // FMA F(N)MADD / F(N)MSUB
+        (D_isFPU && ((FD_instr_i[31] == 1'b0)  || // R-Type FPU Instr
         (FD_instr_i[31:28] == 4'b1101)         || // FCVT.S.W(U)
-        (FD_instr_i[31:28] == 4'b1111));          // FMV.W.X
+        (FD_instr_i[31:28] == 4'b1111)));         // FMV.W.X
 
 // rs1 is a FP reg if op is FPU except for FCVT.S.W(U) and FMV.W.X
 wire D_rs1IsFP = D_isFPU &&
         !((FD_instr_i[4:2]   == 3'b100) && (
           (FD_instr_i[31:28] == 4'b1100) ||     // FCVT.W.S(U)
-          (FD_instr_i[31:28] == 4'b1110)));      // FMV.X.W
+          (FD_instr_i[31:28] == 4'b1111)));      // FMV.W.X
 
 // rs2 is a FP reg if op is FPU or FSW
 wire D_rs2IsFP = D_isFPU || (D_isStore && FD_instr_i[2]);

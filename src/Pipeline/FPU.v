@@ -11,12 +11,12 @@ module FPU (
         input  wire        reset_i,
 
         input  wire        fpuEnable_i,
-        input  wire [31:2] instr_i,
+        input  wire [31:0] instr_i,
         input  wire [31:0] rs1_i,
         input  wire [31:0] rs2_i,
         input  wire [31:0] rs3_i,
 
-        output wire        busy_o,
+        output reg         busy_o,
         output wire [31:0] fpuOut_o
 );
 
@@ -24,12 +24,16 @@ module FPU (
 reg x_sign; reg signed [8:0] x_exp; reg signed [49:0] x_mant;
 reg y_sign; reg signed [8:0] y_exp; reg signed [49:0] y_mant;
 
+// Macro used to write to the X register with 32 bits
+`define X {x_sign, x_exp[7:0], x_mant[46:24]}
+assign fpuOut_o = `X;
+
 // Single-precision FP Registers for internal use
-reg a_sign; reg [8:0] a_exp; reg [23:0] a_mant;
-reg b_sign; reg [8:0] b_exp; reg [23:0] b_mant;
-reg c_sign; reg [8:0] c_exp; reg [23:0] c_mant;
-reg d_sign; reg [8:0] d_exp; reg [23:0] d_mant;
-reg e_sign; reg [8:0] e_exp; reg [23:0] e_mant;
+reg a_sign; reg [7:0] a_exp; reg [23:0] a_mant;
+reg b_sign; reg [7:0] b_exp; reg [23:0] b_mant;
+reg c_sign; reg [7:0] c_exp; reg [23:0] c_mant;
+reg d_sign; reg [7:0] d_exp; reg [23:0] d_mant;
+reg e_sign; reg [7:0] e_exp; reg [23:0] e_mant;
 /* NOTE: exp is biased by 127 and mant includes implied leading 1 */
 
 // Macros for moving values in registers
@@ -68,12 +72,13 @@ task fpmi_gen; input [FPMI_BITS:0] instr; begin
 end endtask
 
 // Procedure Start Addresses
-integer FPMPROG_ADD, FPMPROG_MUL, FPMPROG_MADD;
+integer FPMPROG_SINGLE, FPMPROG_ADD, FPMPROG_MUL, FPMPROG_MADD;
 
 // Generate FPU Procedures
 integer I;
 initial begin
         I = 0;
+        FPMPROG_SINGLE = I;
         fpmi_gen(FPMI_READY | FPMI_EXIT_FLAG);
 
         /******** FADD, FSUB ********/
@@ -99,13 +104,15 @@ end
 
 // Set procedure to run based off decoded instruction
 reg [6:0] fpmprog;
-// always @(*) begin
-//         case(1'b1)
-//                 isFADD  | isFSUB                        : fpmprog = FPMPROG_ADD;
-//                 isFMUL                                  : fpmprog = FPMPROG_MUL;
-//                 isFMADD | isFMSUB | isFNMADD | isFNMSUB : fpmprog = FPMPROG_MUL;
-//         endcase
-// end
+always @(*) begin
+        case(1'b1)
+                isFADD | isFSUB                         : fpmprog = FPMPROG_ADD[6:0];
+                isFMUL                                  : fpmprog = FPMPROG_MUL[6:0];
+                isFMADD | isFMSUB | isFMNADD | isFMNSUB : fpmprog = FPMPROG_MUL[6:0];
+                isFMVXW | isFMVWX                       : fpmprog = FPMPROG_SINGLE[6:0];
+                default                                 : fpmprog = 0;
+        endcase
+end
 
 // Micro Instruction State Machine
 reg [6:0]         fpmi_PC;
@@ -113,8 +120,9 @@ reg [FPMI_BITS:0] fpmi_instr;
 (* onehot *)
 wire [FPMI_NUM_STATES-1:0] fpmi_is = 1 << fpmi_instr[FPMI_BITS-1:0];
 
-initial fpmi_PC = FPMI_READY;
-assign busy_o = !fpmi_is[FPMI_READY];
+initial fpmi_PC = 0;
+
+assign busy_o = fpuEnable_i | ~fpmi_is[FPMI_READY];
 
 wire [6:0] fpmi_next_PC =
         fpuEnable_i               ? fpmprog :
@@ -122,7 +130,27 @@ wire [6:0] fpmi_next_PC =
 
 always @(posedge clk_i) begin
         fpmi_PC <= fpmi_next_PC;
-        fpmi_instr <= FPMI_ROM[fpmi_next_PC];
+        fpmi_instr = FPMI_ROM[fpmi_next_PC];
+end
+
+always @(posedge clk_i) begin
+        if (fpuEnable_i) begin
+                // Load rs1-3 into a, b, and c registers. Flush subnormals to 0
+                `FP_LD(a, rs1_i[31], rs1_i[30:23], (|rs1_i[30:23] ? {1'b1,rs1_i[22:0]} : 24'b0));
+                `FP_LD(b, rs2_i[31], rs2_i[30:23], (|rs2_i[30:23] ? {1'b1,rs2_i[22:0]} : 24'b0));
+                `FP_LD(c, rs3_i[31], rs3_i[30:23], (|rs3_i[30:23] ? {1'b1,rs3_i[22:0]} : 24'b0));
+
+                // Store copy of rs1 in E without flushing
+                `FP_LD32(e, rs1_i);
+
+                // Single cycle instructions
+                case(1'b1)
+                        isFSGNJ           : `X <= {           rs2_i[31], rs1_i[30:0]};
+	                isFSGNJN          : `X <= {          !rs2_i[31], rs1_i[30:0]};
+	                isFSGNJX          : `X <= { rs1_i[31]^rs2_i[31], rs1_i[30:0]};
+                        isFMVXW | isFMVWX : `X <= rs1_i;
+                endcase
+        end
 end
 
 // RV32F Instruction Decoder

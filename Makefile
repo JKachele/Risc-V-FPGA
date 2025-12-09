@@ -3,8 +3,8 @@
 # @file        : Makefile
 # @created     : Friday Oct 17, 2025 14:39:28 UTC
 ######################################################################
-RVARCH = rv32im
-RVABI = ilp32
+RVARCH = rv32imf
+RVABI = ilp32f
 RVTOOL_PREFIX := riscv64-unknown-elf
 RVTOOL_DIR := /opt/riscv
 RV_LIB_DIR := $(RVTOOL_DIR)/$(RVTOOL_PREFIX)/lib/$(RVARCH)/$(RVABI)
@@ -18,6 +18,7 @@ CFLAGS := -march=$(RVARCH) -mabi=$(RVABI) -Wno-builtin-declaration-mismatch
 CFLAGS += -nostdlib -fno-pic -fno-stack-protector -w
 LDFLAGS := -m elf32lriscv -nostdlib
 LDFLAGS += -L$(RV_LIB_DIR) -lm $(GCC_LIB_DIR)/libgcc.a
+ODFLAGS := -sj .data -dj .text
 
 # Verilog
 VSRC := $(wildcard src/*.v) $(wildcard src/*/*.v)
@@ -60,7 +61,7 @@ $(RAM): $(FIRMWARE)
 $(FIRMWARE): $(OBJ) Makefile
 	@mkdir -p $(dir $@)
 	$(LD) -T $(LDSCRIPT) $(OBJ) -o $@ $(LDFLAGS)
-	$(OBJDUMP) -ds $@ > $(BIN_DIR)/objdump.txt
+	$(OBJDUMP) $(ODFLAGS) $@ > $(BIN_DIR)/objdump.txt
 
 $(BUILD_DIR)/%.S.o: %.S
 	@mkdir -p $(dir $@)

@@ -10,7 +10,7 @@
 
 int main(void) {
     // printf("Hello, World!\n");
-    float f = 123.456;
+    float f = -9826.32185;
     printf("%f\n", f);
     return 0;
 }

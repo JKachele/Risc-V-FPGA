@@ -219,7 +219,7 @@ wire [31:0] E_fpuOut;
 FPU fpu(
         .clk_i(clk_i),
         .reset_i(reset_i),
-        .fpuEnable_i(DE_isFPU_i),
+        .fpuEnable_i(!EE_fpuRunning & DE_isFPU_i),
         .instr_i(DE_instr_i),
         .rs1_i(E_rs1),
         .rs2_i(E_rs2),
@@ -227,6 +227,11 @@ FPU fpu(
         .busy_o(E_fpuBusy),
         .fpuOut_o(E_fpuOut)
 );
+
+reg EE_fpuRunning;
+always @(posedge clk_i) begin
+        EE_fpuRunning <= E_fpuBusy;
+end
 
 wire [31:0] E_aluOut = DE_isRV32M_i ? E_aluOutM : 
                        DE_isFPU_i   ? E_fpuOut  : E_aluOutBase;

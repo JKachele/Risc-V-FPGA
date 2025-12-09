@@ -49,7 +49,10 @@ always @(*) begin
                 `CYCLEH_ID:   rData = CSR_cycle[63:32];
                 `INSTRET_ID:  rData = CSR_instret[31:0];
                 `INSTRETH_ID: rData = CSR_instret[63:32];
-                default:    rData = 32'b0;
+                `FFLAGS_ID:   rData = {27'b0, csrWData_i[4:0]};
+                `FRM_ID:      rData = {29'b0, csrWData_i[7:5]};
+                `FCSR_ID:     rData = {24'b0, csrWData_i[7:0]};
+                default:      rData = 32'b0;
         endcase
 end
 assign csrRData_o = rData;

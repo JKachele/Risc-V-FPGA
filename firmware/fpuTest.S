@@ -5,6 +5,12 @@ main:
         sw ra, 0(sp)
 
         li t0, 0x48
+        frrm a4
+        fmv.w.x fa0, t0
+        fmv.x.w a0, fa0
+        call putchar
+
+        li t0, 0x65
         sw t0, 4(sp)
         flw fa0, 4(sp)
         fsw fa0, 8(sp)

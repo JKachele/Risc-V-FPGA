@@ -7,7 +7,41 @@
  ************************************************/
 
 extern void putchar(char c);
-extern void print_dec(int val);
+
+static void print_int_part(unsigned long long val) {
+        char buffer[255];
+        char *p = buffer;
+        while (val || p == buffer) {
+                *(p++) = val % 10;
+                val = val / 10;
+        }
+        while (p != buffer) {
+                putchar('0' + *(--p));
+        }
+}
+
+static void print_frac_part(unsigned long long val, unsigned int exp,
+                unsigned int precision) {
+
+        unsigned int bits = 52 - exp;
+        unsigned long long div = (1ull << bits);
+
+        // Shift back fractional part
+        val = val >> (64 - bits);
+
+        for (int i = 0; i < precision; i++) {
+                val *= 10;
+                unsigned int digit = val / div;
+                val = val % div;
+                // Round for last digit
+                if (i == precision-1 && val > div/2) {
+                        digit = digit == 9 ? 0 : digit + 1;
+                }
+                putchar(digit + '0');
+                if (val == 0)
+                        break;
+        }
+}
 
 void printf_fp(unsigned long long val) {
         // Split double into sign, exponent, and signigicand
@@ -27,13 +61,16 @@ void printf_fp(unsigned long long val) {
         unsigned long long fracPart = signi << exp;
 
         // Number is now in the form of intPart.fracPart
-        // Convert the integer part to decimal
-        char buffer[255];
-        char *p = buffer;
-
-        putchar('.');
-        for (int i = (4*16)-4; i >= 0; i -= 4) {
-                putchar("0123456789ABCDEF"[(fracPart >> i) % 16]);
+        // Print negative sign if sign bit set
+        if (sign == 1) {
+                putchar('-');
         }
+
+        // Convert the integer part to decimal
+        print_int_part(intPart);
+        putchar('.');
+
+        // Convert fractional part. Default precision if 6 decimal places
+        print_frac_part(fracPart, exp, 6);
 }
 
