@@ -6,6 +6,7 @@
  *Created-------Wednesday Dec 03, 2025 19:09:22 UTC
  ************************************************/
 
+// TODO: Handle Full IEEE-754 (Full rounding, Subnormals, NaN, Infinity)
 module FPU (
         input  wire        clk_i,
         input  wire        reset_i,
@@ -47,16 +48,20 @@ reg e_sign; reg [7:0] e_exp; reg [23:0] e_signi;
         {RD``_sign, RD``_exp, RD``_signi} <= {RS``_sign, RS``_exp, RS``_signi} 
 
 // FPU Micro-instruction States
-localparam FPMI_READY           = 0;
-localparam FPMI_LOAD_XY         = 1;    // x <- a, y <- b
-localparam FPMI_ADD_SWAP        = 2;    // if |x|>|y|, swap, negX if sign diff
-localparam FPMI_ADD_SHIFT       = 3;    // Shift x to match y exp
-localparam FPMI_ADD_ADD         = 4;    // x <- x + y
-localparam FPMI_ADD_NORM        = 5;    // normalize x after add
-localparam FPMI_LOAD_XY_MUL     = 6;    // x <- norm(a*b), y <- c
-// localparam FPMI_TEST            = 7;
+localparam FPMI_READY           =  0;
+localparam FPMI_LOAD_XY         =  1;   // x <- a, y <- b
+localparam FPMI_ADD_SWAP        =  2;   // if |x|>|y|, swap, negX if sign diff
+localparam FPMI_ADD_SHIFT       =  3;   // Shift x to match y exp
+localparam FPMI_ADD_ADD         =  4;   // x <- x + y
+localparam FPMI_ADD_NORM        =  5;   // normalize x after add
+localparam FPMI_LOAD_XY_MUL     =  6;   // x <- norm(a*b), y <- c
+localparam FPMI_CMP             =  7;   // X <- test(x,y) (FLT, FLE, FEQ)
+localparam FPMI_FP_TO_INT       =  8;   // x <- fpoint_to_int(A)
+localparam FPMI_INT_TO_FP       =  9;   // x <- int_to_fpoint(x)
+localparam FPMI_MIN_MAX         = 10;   // x <- min/max(x,y)
+// localparam FPMI_TEST            = 10;
 
-localparam FPMI_NUM_STATES = 8;
+localparam FPMI_NUM_STATES = 11;
 localparam FPMI_BITS = $clog2(FPMI_NUM_STATES) + 1;
 
 // Exit flag
@@ -73,7 +78,9 @@ task fpmi_gen; input [FPMI_BITS:0] instr; begin
 end endtask
 
 // Procedure Start Addresses
-integer FPMPROG_ADD, FPMPROG_MUL, FPMPROG_MADD;
+integer FPMPROG_ADD, FPMPROG_MUL, FPMPROG_MADD,
+        FPMPROG_CMP, FPMPROG_MIN_MAX,
+        FPMPROG_FP_TO_INT, FPMPROG_INT_TO_FP;
 
 // Generate FPU Procedures
 integer I;
@@ -100,15 +107,38 @@ initial begin
         fpmi_gen(FPMI_ADD_SHIFT);
         fpmi_gen(FPMI_ADD_ADD);
         fpmi_gen(FPMI_ADD_NORM | FPMI_EXIT_FLAG);
+
+        /******** FLT, FLE, FEQ ********/
+        FPMPROG_CMP = I;
+        fpmi_gen(FPMI_LOAD_XY);
+        fpmi_gen(FPMI_CMP | FPMI_EXIT_FLAG);
+
+        /******** FCVT.W.S, FCVT.WU.S ********/
+        FPMPROG_FP_TO_INT = I;
+        fpmi_gen(FPMI_LOAD_XY);
+        fpmi_gen(FPMI_FP_TO_INT | FPMI_EXIT_FLAG);
+
+        /******** FCVT.S.W, FCVT.S.WU ********/
+        FPMPROG_INT_TO_FP = I;
+        fpmi_gen(FPMI_INT_TO_FP);
+        fpmi_gen(FPMI_ADD_ADD); // Fake add to prepare normalization
+        fpmi_gen(FPMI_ADD_NORM | FPMI_EXIT_FLAG);
+
+        /******** FMIN, FMAX ********/
+        FPMPROG_MIN_MAX = I;
+        fpmi_gen(FPMI_LOAD_XY);
+        fpmi_gen(FPMI_MIN_MAX | FPMI_EXIT_FLAG);
 end
 
 // Set procedure to run based off decoded instruction
 reg [6:0] fpmprog;
 always @(*) begin
         case(1'b1)
-                isFADD | isFSUB                         : fpmprog = FPMPROG_ADD[6:0];
+                isFADD  | isFSUB                        : fpmprog = FPMPROG_ADD[6:0];
                 isFMUL                                  : fpmprog = FPMPROG_MUL[6:0];
                 isFMADD | isFMSUB | isFMNADD | isFMNSUB : fpmprog = FPMPROG_MADD[6:0];
+                isFLT   | isFLE   | isFEQ               : fpmprog = FPMPROG_CMP[6:0];
+                isFMIN  | isFMAX                        : fpmprog = FPMPROG_MIN_MAX[6:0];
                 default                                 : fpmprog = 0;
         endcase
 end
@@ -149,6 +179,7 @@ always @(posedge clk_i) begin
                         isFSGNJ           : `X <= {           rs2_i[31], rs1_i[30:0]};
 	                isFSGNJN          : `X <= {          !rs2_i[31], rs1_i[30:0]};
 	                isFSGNJX          : `X <= { rs1_i[31]^rs2_i[31], rs1_i[30:0]};
+                        isFCLASS          : `X <= fclass;
                         isFMVXW | isFMVWX : `X <= rs1_i;
                 endcase
         end else if (busy_o) begin
@@ -218,19 +249,46 @@ always @(posedge clk_i) begin
                                 y_signi <= {2'b0, c_signi, 24'd0};
                                 y_exp  <= {1'b0, c_exp};
                         end
+
+                        fpmi_is[FPMI_CMP]: begin
+                                `X <= {31'b0,
+                                        (isFLT && X_LT_Y) ||
+                                        (isFLE && X_LE_Y) ||
+                                        (isFEQ && X_EQ_Y)};
+                        end
+
+                        fpmi_is[FPMI_FP_TO_INT]: begin
+                                `X <= (isFCVTWUS | !x_sign) ?
+                                        x_ftoiShiftd : -$signed(x_ftoiShiftd);
+                        end
+
+                        fpmi_is[FPMI_INT_TO_FP]: begin
+                                x_signi <= 0;
+                                x_exp <= 127+23+6;
+                                y_signi <= (isFCVTSWU | !e_sign) ?
+                                        {e_sign, e_exp, e_signi[22:0], 18'b0} :
+                                        {-$signed({e_sign, e_exp, e_signi[22:0]}), 18'b0};
+                                y_sign <= isFCVTSW & e_sign;
+                        end
+
+                        fpmi_is[FPMI_MIN_MAX]: begin
+                                `X <= (X_LT_Y ^ isFMAX) ?
+                                        {x_sign, x_exp[7:0], x_signi[46:24]} :
+                                        {y_sign, y_exp[7:0], y_signi[46:24]};
+                        end
                 endcase
         end
 end
 
-// Support Circuritry
-// Add / Subtract
+/**************** Support Circuritry ****************/
+/******** Add / Subtract ********/
 wire signed [50:0] signiSum  = y_signi + x_signi;
 wire signed [50:0] signiDiff = y_signi - x_signi;
 
 wire signed [8:0] expSum  = y_exp + x_exp;
 wire signed [8:0] expDiff = y_exp - x_exp;
 
-// Multiply
+/******** Multiply ********/
 wire [49:0] prod_signi = a_signi * b_signi;
 
 // exponent of product, once normalized
@@ -241,7 +299,7 @@ wire signed [8:0] prod_exp_norm = a_exp+b_exp-127+{7'b0,prod_signi[47]};
 // detect null product and underflows (all denormals are flushed to zero)
 wire prod_Z = (prod_exp_norm <= 0) || !(|prod_signi[47:46]);
 
-// Comparisons
+/******** Comparisons ********/
 wire expEQ   = (expDiff == 0);          // X and Y exponents are equal
 wire signiEQ = (signiDiff == 0);        // X and Y significands are equal
 wire fabsEQ  = (expEQ & signiEQ);       // abs(X) and abs(Y) are equal
@@ -251,14 +309,53 @@ wire fabsX_LE_fabsY = (!expDiff[8] && !expEQ) || (expEQ && !signiDiff[50]);
 wire fabsY_LT_fabsX = expDiff[8]              || (expEQ && signiDiff[50]);
 wire fabsY_LE_fabsX = expDiff[8]              || (expEQ && (signiDiff[50] || signiEQ));
 
-// Normalization
+wire X_LT_Y = (x_sign  && !y_sign)                   ||
+              (x_sign  && y_sign  && fabsY_LT_fabsX) ||
+              (!x_sign && !y_sign && fabsX_LT_fabsY);
+wire X_LE_Y = (x_sign  && !y_sign)                   ||
+              (x_sign  && y_sign  && fabsY_LE_fabsX) ||
+              (!x_sign && !y_sign && fabsX_LE_fabsY);
+wire X_EQ_Y = fabsEQ && (x_sign == y_sign);
+
+/******** Normalization ********/
 wire       [5:0] signiSumCLZ;
 reg        [5:0] normLshamt;
 reg signed [8:0] xExpNorm;
 
 CLZ clz ({13'b0,signiSum}, signiSumCLZ);
 
-// RV32F Instruction Decoder
+/******** Float to Integer conversion ********/
+// Exponent bias = 127 and significand shift is 23.
+// -6 because it is bit 29 of X that corresponds to bit 47 of X_frac,
+// instead of bit 23 (and 23-29 = -6).
+wire signed [8:0] ftoiShift = a_exp - 9'd127 - 9'd23 - 9'd6;
+wire signed [8:0] negFtoiShift = -ftoiShift;
+
+wire [31:0] x_ftoiShiftd = ftoiShift[8] ?
+        (|negFtoiShift[8:5] ? 0 :
+        ({x_signi[49:18]} >> negFtoiShift[4:0])) :
+        ({x_signi[49:18]} << ftoiShift[4:0]);
+
+/******** Classification ********/
+wire rs1ExpZ   = (rs1_i[30:23] == 0);
+wire rs1Exp255 = (rs1_i[30:23] == 255);
+wire rs1SigniZ = (rs1_i[22:0]  == 0);
+
+wire [31:0] fclass = {
+        22'b0,
+        rs1Exp255   &  rs1_i[22],                 // 9: quiet NaN
+        rs1Exp255   & !rs1_i[22] & (|rs1_i[21:0]),// 8: sig NaN
+        !rs1_i[31]  &  rs1Exp255 &  rs1SigniZ,    // 7: +infinity
+        !rs1_i[31]  & !rs1ExpZ   & !rs1Exp255,    // 6: +normal
+        !rs1_i[31]  &  rs1ExpZ   & !rs1SigniZ,    // 5: +subnormal
+        !rs1_i[31]  &  rs1ExpZ   &  rs1SigniZ,    // 4: +0
+        rs1_i[31]   &  rs1ExpZ   &  rs1SigniZ,    // 3: -0
+        rs1_i[31]   &  rs1ExpZ   & !rs1SigniZ,    // 2: -subnormal
+        rs1_i[31]   & !rs1ExpZ   & !rs1Exp255,    // 1: -normal
+        rs1_i[31]   &  rs1Exp255 &  rs1SigniZ     // 0: -infinity
+        };
+
+/**************** RV32F Instruction Decoder ****************/
 wire isFMADD   = (instr_i[4:2] == 3'b000);
 wire isFMSUB   = (instr_i[4:2] == 3'b001);
 wire isFMNSUB  = (instr_i[4:2] == 3'b010);
