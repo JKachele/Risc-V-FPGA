@@ -37,6 +37,17 @@ reg d_sign; reg [7:0] d_exp; reg [23:0] d_signi;
 reg e_sign; reg [7:0] e_exp; reg [23:0] e_signi;
 /* NOTE: exp is biased by 127 and signi includes implied leading 1 */
 
+// Division helper registers
+reg        guard;
+reg        round_bit;
+reg        sticky;
+reg [50:0] quotient;
+reg [50:0] divisor;
+reg [50:0] dividend;
+reg [50:0] remainder;
+reg [5:0]  count;
+
+
 // Macros for moving values in registers
 `define FP_LD32(RD,VAL)\
         {RD``_sign, RD``_exp, RD``_signi[22:0]} <= VAL; RD``_signi[23] <= 1'b1
@@ -59,9 +70,17 @@ localparam FPMI_CMP             =  7;   // X <- test(x,y) (FLT, FLE, FEQ)
 localparam FPMI_FP_TO_INT       =  8;   // x <- fpoint_to_int(A)
 localparam FPMI_INT_TO_FP       =  9;   // x <- int_to_fpoint(x)
 localparam FPMI_MIN_MAX         = 10;   // x <- min/max(x,y)
-// localparam FPMI_TEST            = 10;
+// Division Instructions
+localparam FPMI_DIV_0           = 11;
+localparam FPMI_DIV_1           = 12;
+localparam FPMI_DIV_2           = 13;
+localparam FPMI_DIV_3           = 14;
+localparam FPMI_DIV_NORM_1      = 15;
+localparam FPMI_DIV_NORM_2      = 16;
+localparam FPMI_DIV_ROUND       = 17;
+localparam FPMI_DIV_PACK        = 18;
 
-localparam FPMI_NUM_STATES = 11;
+localparam FPMI_NUM_STATES = 19;
 localparam FPMI_BITS = $clog2(FPMI_NUM_STATES) + 1;
 
 // Exit flag
@@ -78,7 +97,7 @@ task fpmi_gen; input [FPMI_BITS:0] instr; begin
 end endtask
 
 // Procedure Start Addresses
-integer FPMPROG_ADD, FPMPROG_MUL, FPMPROG_MADD,
+integer FPMPROG_ADD, FPMPROG_MUL, FPMPROG_MADD, FPMPROG_DIV, FPMPROG_SQRT,
         FPMPROG_CMP, FPMPROG_MIN_MAX,
         FPMPROG_FP_TO_INT, FPMPROG_INT_TO_FP;
 
@@ -128,6 +147,14 @@ initial begin
         FPMPROG_MIN_MAX = I;
         fpmi_gen(FPMI_LOAD_XY);
         fpmi_gen(FPMI_MIN_MAX | FPMI_EXIT_FLAG);
+
+        /******** FDIV ********/
+        FPMPROG_DIV = I;
+        fpmi_gen(FPMI_READY | FPMI_EXIT_FLAG);
+
+        /******** FSQRT ********/
+        FPMPROG_SQRT = I;
+        fpmi_gen(FPMI_READY | FPMI_EXIT_FLAG);
 end
 
 // Set procedure to run based off decoded instruction
@@ -139,6 +166,8 @@ always @(*) begin
                 isFMADD | isFMSUB | isFMNADD | isFMNSUB : fpmprog = FPMPROG_MADD[6:0];
                 isFLT   | isFLE   | isFEQ               : fpmprog = FPMPROG_CMP[6:0];
                 isFMIN  | isFMAX                        : fpmprog = FPMPROG_MIN_MAX[6:0];
+                isFDIV                                  : fpmprog = FPMPROG_DIV[6:0];
+                isFSQRT                                 : fpmprog = FPMPROG_SQRT[6:0];
                 default                                 : fpmprog = 0;
         endcase
 end
@@ -391,36 +420,4 @@ wire isFMVXW   = (!isFMA && (instr_i[31:27] == 5'b11100) && !instr_i[12]);
 wire isFMVWX   = (!isFMA && (instr_i[31:27] == 5'b11110));
 
 endmodule
-
-/******************************************************************************
- * FPU Normalization needs to detect the position of the first bit set 
- * in the A_frac register. It is easier to count the number of leading 
- * zeroes (CLZ for Count Leading Zeroes), as follows. See:
- * https://electronics.stackexchange.com/questions/196914/
- *    verilog-synthesize-high-speed-leading-zero-count */
-module CLZ #(
-        parameter W_IN = 64, // must be power of 2, >= 2
-        parameter W_OUT = $clog2(W_IN)	     
-) (
-        input wire [W_IN-1:0]   in,
-        output wire [W_OUT-1:0] out
-);
-generate
-        if(W_IN == 2) begin
-                assign out = !in[1];
-        end else begin
-                wire [W_OUT-2:0] half_count;
-                wire [W_IN/2-1:0] lhs = in[W_IN/2 +: W_IN/2];
-                wire [W_IN/2-1:0] rhs = in[0      +: W_IN/2];
-                wire left_empty = ~|lhs;
-                CLZ #(
-                        .W_IN(W_IN/2)
-                ) inner(
-                        .in(left_empty ? rhs : lhs),
-                        .out(half_count)		
-                );
-                assign out = {left_empty, half_count};
-        end
-endgenerate
-endmodule 
 

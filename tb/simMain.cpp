@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
         uart->setup(setup);
         baudclocks = setup & 0xfffffff;
 
-        tb->opentrace("trace.vcd");
+        // tb->opentrace("trace.vcd");
 
         int rxPrev = 1;
         while (!tb->done()) {
