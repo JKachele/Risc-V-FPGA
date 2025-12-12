@@ -8,8 +8,8 @@
 
 module LedDim (
         input  wire        clk,
-        input  wire [15:0] leds_i,
-        output reg  [15:0] leds_o
+        input  wire [3:0] leds_i,
+        output reg  [3:0] leds_o
 );
 
 reg count;
@@ -17,7 +17,7 @@ always @(posedge clk) begin
         if (count == 1'b1) begin
                 leds_o <= leds_i;
         end else begin
-                leds_o <= 16'b0;
+                leds_o <= 4'b0;
         end
         count <= ~count;
 end

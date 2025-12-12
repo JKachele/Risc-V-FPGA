@@ -1,9 +1,22 @@
 # Set the target device
 set_part        xc7a100tcsg324-1
 
+if { $argc < 1 } {
+        puts "Usage: vivado -mode batch -source run_vivado.tcl -- <verilog files>"
+        exit 1
+}
+
 # Read Design Files
-read_verilog    ../src/pipeline/SOC.v
-read_xdc        ../src/Extern/NexusA7.xdc
+foreach filename $argv {
+        set fullpath "../$filename"
+        if { ![file exists $fullpath] } {
+                puts "ERROR: File '$fullpath' does not exist."
+                exit 2
+        }
+        puts "Reading Verilog file: $fullpath"
+        read_verilog $fullpath
+}
+read_xdc        ../src/Extern/ArtyA7.xdc
 
 # Synthesize the design and write synthesis report
 synth_design             -top SOC
@@ -13,7 +26,7 @@ report_power             -file ./reports/post_synth_power.rpt
 report_clock_interaction -delay_type min_max -file ./reports/post_synth_clock_interaction.rpt
 report_high_fanout_nets  -fanout_greater_than 200 -max_nets 50 -file ./reports/post_synth_high_fanout_nets.rpt
 
-# PLace the design and write the placement report
+# Place the design and write the placement report
 opt_design
 place_design
 phys_opt_design

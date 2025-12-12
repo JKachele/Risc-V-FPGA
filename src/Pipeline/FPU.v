@@ -17,7 +17,7 @@ module FPU (
         input  wire [31:0] rs2_i,
         input  wire [31:0] rs3_i,
 
-        output reg         busy_o,
+        output wire        busy_o,
         output wire [31:0] fpuOut_o
 );
 

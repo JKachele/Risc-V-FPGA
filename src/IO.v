@@ -13,7 +13,7 @@ module IO (
         output wire [31:0] IO_memRData_o,
         input  wire [31:0] IO_memWData_i,
         input  wire        IO_memWr_i,
-        output wire [15:0] leds_o,
+        output wire [3:0]  leds_o,
         output wire        txd_o
 );
 wire [13:0] IO_wordAddr = IO_memAddr_i[15:2];
@@ -23,11 +23,11 @@ localparam IO_LEDS_bit          = 0;
 localparam IO_UART_DAT_bit      = 1;
 localparam IO_UART_CTRL_bit     = 2;
 
-reg [15:0] leds;
+reg [3:0] leds;
 always @(posedge clk_i) begin
         if (IO_memWr_i) begin
                 if (IO_wordAddr[IO_LEDS_bit])
-                        leds[15:0] <= IO_memWData_i[15:0];
+                        leds[3:0] <= IO_memWData_i[3:0];
         end
 end
 

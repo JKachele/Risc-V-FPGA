@@ -88,7 +88,7 @@ lint: $(BIN_DIR) $(ROM) $(RAM)
 	cd tcl; vivado -mode tcl -source lint.tcl
 
 build: $(BIN_DIR) $(ROM) $(RAM) 
-	cd tcl; vivado -mode tcl -source build.tcl
+	cd tcl; vivado -mode batch -source build.tcl -tclargs $(VSRC)
 
 upload:
 	cd tcl; vivado -mode tcl -source upload.tcl

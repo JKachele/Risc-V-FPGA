@@ -10,7 +10,7 @@
 module SOC (
         input  wire CLK,
         input  wire RESET,
-        output wire [15:0] LEDS,
+        output wire [3:0] LEDS,
         input  wire RXD,
         output wire TXD
 );
