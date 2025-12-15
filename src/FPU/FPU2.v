@@ -20,6 +20,79 @@ module FPU2 (
         output wire [31:0] fpuOut_o
 );
 
+reg [31:0] out;
+assign fpuOut_o = out;
+
+// Decode floating point numbers
+wire        [9:0]  rs1FullClass;
+wire        [5:0]  rs1Class;
+wire signed [9:0]  rs1Exp;
+wire        [23:0] rs1Sig;
+FClass class1(.reg_i(rs1_i), .regExp_o(rs1Exp), .regSig_o(rs1Sig),
+        .class_o(rs1Class), .fullClass_o(rs1FullClass));
+wire        [5:0]  rs2Class;
+wire signed [9:0]  rs2Exp;
+wire        [23:0] rs2Sig;
+FClass class2(.reg_i(rs2_i), .regExp_o(rs2Exp), .regSig_o(rs2Sig),
+        .class_o(rs2Class), .fullClass_o());
+wire        [5:0]  rs3Class;
+wire signed [9:0]  rs3Exp;
+wire        [23:0] rs3Sig;
+FClass class3(.reg_i(rs3_i), .regExp_o(rs3Exp), .regSig_o(rs3Sig),
+        .class_o(rs3Class), .fullClass_o());
+
+// Multiplication
+wire [31:0] fmulOut;
+// Keep unrounded output for FMA instructions
+wire signed [10:0] fmulExp;
+wire        [47:0] fmulSig;
+FMUL fmul(
+        .rs1_i(rs1_i),
+        .rs1Exp_i(rs1Exp),
+        .rs1Sig_i(rs1Sig),
+        .rs1Class_i(rs1Class),
+        .rs2_i(rs2_i),
+        .rs2Exp_i(rs2Exp),
+        .rs2Sig_i(rs2Sig),
+        .rs2Class_i(rs2Class),
+        .fmulOut_o(fmulOut),
+        .exp_o(fmulExp),
+        .sig_o(fmulSig)
+);
+
+// Comparisons
+wire [2:0] fcmpOut; // {FLT, FLE, FEQ}
+FCMP fcmp(
+        .rs1_i(rs1_i),
+        .rs1Exp_i(rs1Exp),
+        .rs1Sig_i(rs1Sig),
+        .rs1Class_i(rs1Class),
+        .rs2_i(rs2_i),
+        .rs2Exp_i(rs2Exp),
+        .rs2Sig_i(rs2Sig),
+        .rs2Class_i(rs2Class),
+        .fcmp_o(fcmpOut)
+);
+
+always @(*) begin
+        busy_o = 1'b0;
+        case (1'b1)
+                isFSGNJ           : out = {           rs2_i[31], rs1_i[30:0]};
+	        isFSGNJN          : out = {          !rs2_i[31], rs1_i[30:0]};
+	        isFSGNJX          : out = { rs1_i[31]^rs2_i[31], rs1_i[30:0]};
+                isFCLASS          : out = {22'b0, rs1FullClass};
+                isFMVXW | isFMVWX : out = rs1_i;
+
+                isFEQ             : out = {31'b0, fcmpOut[0]};
+                isFLE             : out = {31'b0, fcmpOut[1]};
+                isFLT             : out = {31'b0, fcmpOut[2]};
+                isFMAX | isFMIN   : out = (fcmpOut[2] ^ isFMAX) ? rs1_i : rs2_i;
+
+                isFMUL            : out = fmulOut;
+                default           : out = 32'b0;
+        endcase
+end
+
 /**************** RV32F Instruction Decoder ****************/
 wire isFMADD   = (instr_i[4:2] == 3'b000);
 wire isFMSUB   = (instr_i[4:2] == 3'b001);

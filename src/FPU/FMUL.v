@@ -7,37 +7,34 @@
  ************************************************/
 
 module FMUL (
-        input  wire        clk_i,
-        input  wire        reset_i,
+        input  wire        [31:0] rs1_i,
+        input  wire signed [9:0]  rs1Exp_i,
+        input  wire        [23:0] rs1Sig_i,
+        input  wire        [5:0]  rs1Class_i,
+        input  wire        [31:0] rs2_i,
+        input  wire signed [9:0]  rs2Exp_i,
+        input  wire        [23:0] rs2Sig_i,
+        input  wire        [5:0]  rs2Class_i,
 
-        input  wire        fmulEnable_i,
-        input  wire [31:0] rs1_i,
-        input  wire [31:0] rs2_i,
-
-        output wire [31:0] fmulOut_o
+        output wire        [31:0] fmulOut_o,
+        output wire signed [10:0] exp_o,
+        output wire        [47:0] sig_o
 );
 
 reg [31:0] out;
 assign fmulOut_o = out;
+assign exp_o = outExp;
+assign sig_o = outSigNorm;
 
-wire signed [8:0]  rs1Exp;// = rs1_i[30:23] - 127;
-wire        [23:0] rs1Sig;// = {1'b1, rs1_i[22:0]};
-wire signed [8:0]  rs2Exp;// = rs2_i[30:23] - 127;
-wire        [23:0] rs2Sig;// = {1'b1, rs2_i[22:0]};
-
-wire        [47:0] sigProd = rs1Sig * rs2Sig;
-wire signed [8:0]  expSum = rs1Exp + rs2Exp;
+wire        [47:0] sigProd = rs1Sig_i * rs2Sig_i;
+wire signed [10:0]  expSum = rs1Exp_i + rs2Exp_i;
 
 wire               outSign = rs1_i[31] ^ rs2_i[31];
 reg         [47:0] outSigNorm;
 reg         [47:0] outSig;
-reg  signed [8:0]  outExp;
-reg         [8:0]  outExpBiased;
+reg  signed [10:0] outExp;
+reg         [10:0] outExpBiased;
 
-wire [5:0] rs1Class;
-wire [5:0] rs2Class;
-FClass class1(rs1_i, rs1Exp, rs1Sig, rs1Class);
-FClass class2(rs2_i, rs2Exp, rs2Sig, rs1Class);
 localparam CLASS_ZERO = 0;
 localparam CLASS_SUB  = 1;
 localparam CLASS_NORM = 2;
@@ -46,18 +43,22 @@ localparam CLASS_SNAN = 4;
 localparam CLASS_QNAN = 5;
 
 always @(*) begin
+        outSigNorm = 48'b0;
+        outSig = 48'b0;
+        outExp = 11'b0;
+        outExpBiased = 11'b0;
         /******** Special Cases ********/
         // Propigate NaNs
-        if (rs1Class[CLASS_QNAN] || rs2Class[CLASS_QNAN]) begin
-                out = rs1Class[CLASS_QNAN] ? rs1_i : rs2_i;
+        if (rs1Class_i[CLASS_QNAN] || rs2Class_i[CLASS_QNAN]) begin
+                out = rs1Class_i[CLASS_QNAN] ? rs1_i : rs2_i;
         end
-        else if (rs1Class[CLASS_SNAN] || rs2Class[CLASS_SNAN]) begin
-                out = rs1Class[CLASS_SNAN] ? rs1_i : rs2_i;
+        else if (rs1Class_i[CLASS_SNAN] || rs2Class_i[CLASS_SNAN]) begin
+                out = rs1Class_i[CLASS_SNAN] ? rs1_i : rs2_i;
         end
         // Infinity
-        else if (rs1Class[CLASS_INF] || rs2Class[CLASS_INF]) begin
+        else if (rs1Class_i[CLASS_INF] || rs2Class_i[CLASS_INF]) begin
                 // Infinity x Zero = qNaN
-                if (rs1Class[CLASS_ZERO] || rs2Class[CLASS_ZERO]) begin
+                if (rs1Class_i[CLASS_ZERO] || rs2Class_i[CLASS_ZERO]) begin
                         out = {outSign, {8{1'b1}}, 1'b1, 22'b0};
                 end
                 // Infinity x (infinity, normal, subnormal) = infinity
@@ -66,16 +67,16 @@ always @(*) begin
                 end
         end
         // Zero and Subnormals
-        else if (rs1Class[CLASS_ZERO] || rs2Class[CLASS_ZERO] ||
-                 rs1Class[CLASS_SUB] || rs2Class[CLASS_SUB]) begin
+        else if (rs1Class_i[CLASS_ZERO] || rs2Class_i[CLASS_ZERO] ||
+                 rs1Class_i[CLASS_SUB] || rs2Class_i[CLASS_SUB]) begin
                 out = {outSign, 31'b0};
         end
 
-        /******** Normals X Normals ********/
-        else if (rs1Class[CLASS_NORM] && rs2Class[CLASS_NORM]) begin
+        /******** Normals X Normals or Subnormals ********/
+        else begin
                 // Normalize the significand product
                 if (sigProd[47]) begin
-                        outSigNorm = {sigProd[46:0], 1'b0};
+                        outSigNorm = {sigProd[47:1], 1'b0};
                         outExp = expSum + 1;
                 end else begin
                         outSigNorm = sigProd;
@@ -90,7 +91,7 @@ always @(*) begin
                 // Subnormal
                 else if (outExp < -126) begin
                         outSig = outSigNorm >> (-126 - outExp);
-                        out = {outSign, 8'b0, outSig[47:25]};
+                        out = {outSign, 8'b0, outSig[46:24]};
                 end
                 // Overflow
                 else if (outExp > 127) begin

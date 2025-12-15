@@ -101,8 +101,9 @@ public:
                 printf("Branch hit = %3.3f\%%\n", nbBranchHit*100.0/nbBranch);
                 printf("JALR   hit = %3.3f\%%\n", nbJALRhit*100.0/nbJALR);
                 printf("Load hzrds = %3.3f\%%\n", nbLoadHazard*100.0/nbLoad);
-                printf("CPI        = %3.3f\n",(cycle*1.0)/(instret*1.0));
+                printf("Cycles     = %ld\n", cycle);
                 printf("Instret    = %ld\n", instret);
+                printf("CPI        = %3.3f\n",(cycle*1.0)/(instret*1.0));
                 printf("Instr. mix = (");
                 printf("Branch:%3.3f\%% | ",    nbBranch*100.0/instret);
                 printf("JAL:%3.3f\%% | ",       nbJAL*100.0/instret);
