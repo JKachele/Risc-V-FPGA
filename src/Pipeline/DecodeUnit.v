@@ -153,7 +153,7 @@ wire D_rdIsFP = (FD_instr_i[6:2] == 5'b00001)  || // FLW
 // rs1 is a FP reg if op is FPU except for FCVT.S.W(U) and FMV.W.X
 wire D_rs1IsFP = D_isFPU &&
         !((FD_instr_i[4:2]   == 3'b100) && (
-          (FD_instr_i[31:28] == 4'b1100) ||     // FCVT.W.S(U)
+          (FD_instr_i[31:28] == 4'b1101) ||     // FCVT.S.W(U)
           (FD_instr_i[31:28] == 4'b1111)));      // FMV.W.X
 
 // rs2 is a FP reg if op is FPU or FSW

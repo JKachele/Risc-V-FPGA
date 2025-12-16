@@ -44,8 +44,9 @@ FClass class3(.reg_i(rs3_i), .regExp_o(rs3Exp), .regSig_o(rs3Sig),
 // Multiplication
 wire [31:0] fmulOut;
 // Keep unrounded output for FMA instructions
-wire signed [10:0] fmulExp;
 wire        [47:0] fmulSig;
+wire signed [10:0] fmulExp;
+wire        [5:0]  fmulClass;
 FMUL fmul(
         .rs1_i(rs1_i),
         .rs1Exp_i(rs1Exp),
@@ -55,9 +56,11 @@ FMUL fmul(
         .rs2Exp_i(rs2Exp),
         .rs2Sig_i(rs2Sig),
         .rs2Class_i(rs2Class),
+        .rm_i(3'b000),
         .fmulOut_o(fmulOut),
         .exp_o(fmulExp),
-        .sig_o(fmulSig)
+        .sig_o(fmulSig),
+        .class_o(fmulClass)
 );
 
 // Comparisons
@@ -74,22 +77,39 @@ FCMP fcmp(
         .fcmp_o(fcmpOut)
 );
 
+// Int to FP
+wire [31:0] fcvtOut;
+wire [1:0] fcvtInstr = {(isFCVTWS | isFCVTWUS), (isFCVTSWU | isFCVTWUS)};
+FCVT fcvt(
+        .rs1_i(rs1_i),
+        .rs1Exp_i(rs1Exp),
+        .rs1Sig_i(rs1Sig),
+        .rs1Class_i(rs1Class),
+        .instr_i(fcvtInstr),
+        .rm_i(3'b000),
+        .fcvtOut_o(fcvtOut)
+);
+
 always @(*) begin
         busy_o = 1'b0;
         case (1'b1)
-                isFSGNJ           : out = {           rs2_i[31], rs1_i[30:0]};
-	        isFSGNJN          : out = {          !rs2_i[31], rs1_i[30:0]};
-	        isFSGNJX          : out = { rs1_i[31]^rs2_i[31], rs1_i[30:0]};
-                isFCLASS          : out = {22'b0, rs1FullClass};
-                isFMVXW | isFMVWX : out = rs1_i;
+                // Move and convert
+                isFSGNJ              : out = {           rs2_i[31], rs1_i[30:0]};
+	        isFSGNJN             : out = {          !rs2_i[31], rs1_i[30:0]};
+	        isFSGNJX             : out = { rs1_i[31]^rs2_i[31], rs1_i[30:0]};
+                isFMVXW  | isFMVWX   : out = rs1_i;
+                isFCVTSW | isFCVTSWU : out = fcvtOut;
+                isFCVTWS | isFCVTWUS : out = fcvtOut;
 
-                isFEQ             : out = {31'b0, fcmpOut[0]};
-                isFLE             : out = {31'b0, fcmpOut[1]};
-                isFLT             : out = {31'b0, fcmpOut[2]};
-                isFMAX | isFMIN   : out = (fcmpOut[2] ^ isFMAX) ? rs1_i : rs2_i;
+                // Compare and classify
+                isFEQ                : out = {31'b0, fcmpOut[0]};
+                isFLE                : out = {31'b0, fcmpOut[1]};
+                isFLT                : out = {31'b0, fcmpOut[2]};
+                isFMAX   | isFMIN    : out = (fcmpOut[2] ^ isFMAX) ? rs1_i : rs2_i;
+                isFCLASS             : out = {22'b0, rs1FullClass};
 
-                isFMUL            : out = fmulOut;
-                default           : out = 32'b0;
+                isFMUL               : out = fmulOut;
+                default              : out = 32'b0;
         endcase
 end
 

@@ -10,19 +10,25 @@
 
 int main(void) {
     // printf("Hello, World!\n");
-    float f = 826.32185;
+    float f1 = 826.32185;
     float f2 = 62.458;
-    float f3 = f * f2;
-    printf("%f\n", f3);
+    // float f1 = 0.0000000000000000000012345;
+    // float f2 = 0.00000000000000000000012563;
+    float f = f1 * f2;
+    printf("%f\n", f);
 
-    float f4 = 51610.40625;
-    if (f3 < f4) {
-            printf("Less!\n");
-    } else if (f3 > f4){
-            printf("More!\n");
-    } else {
-            printf("Equal!\n");
-    }
+    long i;
+    i = *(long*)&f;
+    printf("%x\n", i);
+
+    i = 52775061;
+    f = (float)i;
+    printf("%f\n", f);
+
+    i = 52775062;
+    f = (float)i;
+    printf("%f\n", f);
+
     return 0;
 }
 
