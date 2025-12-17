@@ -24,6 +24,7 @@ module Processor(
         output wire [11:0] csrRAddr_o,
         input  wire [31:0] csrRData_i,
         output wire        csrInstStep_o,
+        input  wire [2:0]  csrFRM_i,
         // Memory
         output wire [31:0] IMemAddr_o,
         input  wire [31:0] IMemData_i,
@@ -240,6 +241,7 @@ ExecuteUnit execute(
         .rs1Data_i(rs1Data_i),
         .rs2Data_i(rs2Data_i),
         .rs3Data_i(rs3Data_i),
+        .csrFRM_i(csrFRM_i),
         .DMemRAddr_o(DMemRAddr_o),
         .DMemRData_i(DMemRData_i),
         .MW_wbEnable_i(MW_wbEnable),

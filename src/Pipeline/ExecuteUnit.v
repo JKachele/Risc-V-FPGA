@@ -25,6 +25,8 @@ module ExecuteUnit (
         input  wire [31:0] rs1Data_i,
         input  wire [31:0] rs2Data_i,
         input  wire [31:0] rs3Data_i,
+        // FPU Rounding Modes
+        input  wire [2:0]  csrFRM_i,
         // Memory Interface
         output wire [31:0] DMemRAddr_o,
         input  wire [31:0] DMemRData_i,
@@ -215,6 +217,7 @@ wire [31:0] E_aluOutM =
 
 /*----------------------FPU-----------------------*/
 wire E_fpuBusy;
+wire [2:0] E_fpuRound = (&DE_funct3_i) ? csrFRM_i : DE_funct3_i;
 wire [31:0] E_fpuOut;
 FPU fpu(
         .clk_i(clk_i),
@@ -224,7 +227,7 @@ FPU fpu(
         .rs1_i(E_rs1),
         .rs2_i(E_rs2),
         .rs3_i(E_rs3),
-        .rm_i(3'b000),
+        .rm_i(E_fpuRound),
         .busy_o(E_fpuBusy),
         .fpuOut_o(E_fpuOut)
 );

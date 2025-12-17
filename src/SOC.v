@@ -34,6 +34,7 @@ wire [31:0] csrWData;
 wire [11:0] csrRAddr;
 wire [31:0] csrRData;
 wire        csrInstStep;
+wire [3:0]  csrFRM;
 
 //Memory
 wire [31:0] IMemAddr;
@@ -66,6 +67,7 @@ Processor CPU(
         .csrRAddr_o(csrRAddr),
         .csrRData_i(csrRData),
         .csrInstStep_o(csrInstStep),
+        .csrFRM_i(csrFRM),
         .IMemAddr_o(IMemAddr),
         .IMemData_i(IMemData),
         .DMemRAddr_o(DMemRAddr),
@@ -99,7 +101,8 @@ CSR_RegFile csr(
         .csrWData_i(csrWData),
         .csrRAddr_i(csrRAddr),
         .csrRData_o(csrRData),
-        .csrInstStep_i(csrInstStep)
+        .csrInstStep_i(csrInstStep),
+        .csrFRM_o(csrFRM)
 );
 
 Memory mem(

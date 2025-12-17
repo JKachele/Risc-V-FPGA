@@ -136,7 +136,8 @@ always @(*) begin
                 adjExpNorm = adjExp + 16 - {5'b0, sumSigCLZ};
                 if (adjExpNorm < -126 || sumSig == 0) begin
                         sumSigNorm = 49'b0;
-                        adjExpNorm = 0;
+                        adjExpNorm = -127;
+                        sumSign = 1'b0;
                 end else if (sumSig[48]) begin
                         sumSigNorm = sumSig >> 1;
                 end else begin

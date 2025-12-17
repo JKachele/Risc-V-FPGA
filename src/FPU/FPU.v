@@ -137,7 +137,7 @@ FCVT fcvt(
         .rs1Sig_i(rs1Sig),
         .rs1Class_i(rs1Class),
         .instr_i(fcvtInstr),
-        .rm_i(rm_i),
+        .rm_i(3'b001),
         .fcvtOut_o(fcvtOut)
 );
 

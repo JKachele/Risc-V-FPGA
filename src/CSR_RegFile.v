@@ -16,7 +16,9 @@ module CSR_RegFile (
         input  wire [11:0] csrRAddr_i,
         output wire [31:0] csrRData_o,
         // Instret update
-        input wire         csrInstStep_i
+        input wire         csrInstStep_i,
+        // FPU Rounding Mode
+        output wire [2:0]  csrFRM_o
 );
 
 // Counters
@@ -24,7 +26,7 @@ reg [63:0] CSR_cycle;       // 0xC00 / 0xC80 ([31:0] / [63:32])
 reg [63:0] CSR_instret;     // 0xC02 / 0xC82 ([31:0] / [63:32]) 
 
 // Floating Point Extension
-reg [31:0] CSR_fcsr;       // 0x001 - 0x003 (fflags, frm, fcsr)
+reg [31:0] CSR_fcsr = 0;    // 0x001 - 0x003 (fflags, frm, fcsr)
 
 // Register IDs
 `define CYCLE_ID     12'hC00

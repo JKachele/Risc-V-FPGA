@@ -63,10 +63,11 @@ end
 
 // Float -> Int conversion
 
-wire        [31:0] ftoiOut;
+wire signed [31:0] ftoiOut = (rs1_i[31]) ? -$signed(ftoiRounded) : ftoiRounded;
+wire        [31:0] ftoiRounded;
 reg         [31:0] ftoiNormal;
 reg         [31:0] ftoiRoundBits;
-FRoundInt roundFtoi(rs1_i[31], ftoiNormal, ftoiRoundBits[31], |ftoiRoundBits[30:0], rm_i, ftoiOut);
+FRoundInt roundFtoi(rs1_i[31], ftoiNormal, ftoiRoundBits[31], |ftoiRoundBits[30:0], rm_i, ftoiRounded);
 
 wire signed [9:0]  ftoiShift    = 10'd23 - rs1Exp_i;
 wire signed [9:0]  negFtoiShift = -ftoiShift;
@@ -94,7 +95,7 @@ always @(*) begin
         else if (instr_i[0] && rs1Exp_i >= 32) begin
                 ftoiNormal = 32'hFFFFFFFF;
         end else if (!instr_i[0] && rs1Exp_i >= 31) begin
-                ftoiNormal = 32'h8FFFFFFF;
+                ftoiNormal = 32'h7FFFFFFF;
         end
         /************************ Conversion ************************/
         else begin

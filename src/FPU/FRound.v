@@ -33,7 +33,7 @@ wire sigOdd = sig_i[nRound];
 
 reg        roundUp; // 1 if rounding up
 
-reg [nSig:0] roundedSig;
+reg [nSig+1:0] roundedSig;
 
 always @(*) begin
         /************************ Nearest Ties to Even ************************/
@@ -99,8 +99,8 @@ always @(*) begin
         end
 
         /************************ Perform Rounding ************************/
-        roundedSig = {1'b0, sig_i[nInt-2:nRound]} + {{nSig{1'b0}}, roundUp};
-        if (roundedSig[nSig]) begin
+        roundedSig = {1'b0, sig_i[nInt-1:nRound]} + {{nSig+1{1'b0}}, roundUp};
+        if (roundedSig[nSig+1]) begin
                 sigOut = roundedSig[nSig:1];
                 expOut = exp_i + 1;
         end else begin
