@@ -15,11 +15,11 @@ int main(void) {
     // float f1 = 0.0000000000000000000012345;
     // float f2 = 0.00000000000000000000012563;
     float f = f1 * f2;
-    printf("%f\n", f);
+    printf("%f * %f = %f\n", f1, f2, f);
 
     long i;
     i = *(long*)&f;
-    printf("%x\n", i);
+    printf("\n%x\n", i);
 
     i = 52775061;
     f = (float)i;

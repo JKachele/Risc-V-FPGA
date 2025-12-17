@@ -4,6 +4,14 @@
 main:
         sw ra, 0(sp)
 
+        fmadd.s fa0, fa1, fa2, fa3
+        fmsub.s fa0, fa1, fa2, fa3
+        fnmadd.s fa0, fa1, fa2, fa3
+        fnmsub.s fa0, fa1, fa2, fa3
+
+        fmul.s fa0, fa1, fa2
+        fadd.s fa0, fa1, fa2
+
         li t0, 0x48
         frrm a4
         fmv.w.x fa0, t0

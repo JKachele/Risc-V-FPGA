@@ -39,9 +39,9 @@ reg         [47:0] outSig;
 reg  signed [10:0] outExp;
 reg         [10:0] outExpBiased;
 
-reg         [22:0] outSigRound;
-reg         [7:0]  outExpRound;
-FRound round(outSign, outSig[47:16], outExpBiased[7:0], rm_i, outSigRound, outExpRound);
+wire        [22:0] outSigRound;
+wire        [7:0]  outExpRound;
+FRound #(.nInt(48)) round(outSign, outSig, outExpBiased[7:0], rm_i, outSigRound, outExpRound);
 
 localparam CLASS_BIT_ZERO = 0;
 localparam CLASS_BIT_SUB  = 1;
@@ -95,10 +95,10 @@ always @(*) begin
         else begin
                 // Normalize the significand product
                 if (sigProd[47]) begin
-                        outSigNorm = {sigProd[47:1], 1'b0};
+                        outSigNorm = sigProd;
                         outExp = expSum + 1;
                 end else begin
-                        outSigNorm = sigProd;
+                        outSigNorm = {sigProd[46:0], 1'b0};
                         outExp = expSum;
                 end
 

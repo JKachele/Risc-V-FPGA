@@ -25,8 +25,8 @@ assign fcvtOut_o = instr_i[1] ? ftoiOut : {outSign, outExp, outSig};
 
 // Int -> float conversion
 reg         outSign;
-reg  [7:0]  outExp;
-reg  [22:0] outSig;
+wire [7:0]  outExp;
+wire [22:0] outSig;
 
 reg  [31:0] unsignedRs1;
 wire [4:0]  intClz;
@@ -63,7 +63,7 @@ end
 
 // Float -> Int conversion
 
-reg         [31:0] ftoiOut;
+wire        [31:0] ftoiOut;
 reg         [31:0] ftoiNormal;
 reg         [31:0] ftoiRoundBits;
 FRoundInt roundFtoi(rs1_i[31], ftoiNormal, ftoiRoundBits[31], |ftoiRoundBits[30:0], rm_i, ftoiOut);

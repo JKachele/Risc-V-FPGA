@@ -6,7 +6,7 @@
  *Created-------Thursday Dec 11, 2025 17:36:54 UTC
  ************************************************/
 
-module FPU2 (
+module FPU (
         input  wire        clk_i,
         input  wire        reset_i,
 
@@ -15,6 +15,7 @@ module FPU2 (
         input  wire [31:0] rs1_i,
         input  wire [31:0] rs2_i,
         input  wire [31:0] rs3_i,
+        input  wire [2:0]  rm_i,
 
         output reg         busy_o,
         output wire [31:0] fpuOut_o
@@ -56,11 +57,61 @@ FMUL fmul(
         .rs2Exp_i(rs2Exp),
         .rs2Sig_i(rs2Sig),
         .rs2Class_i(rs2Class),
-        .rm_i(3'b000),
+        .rm_i(rm_i),
         .fmulOut_o(fmulOut),
         .exp_o(fmulExp),
         .sig_o(fmulSig),
         .class_o(fmulClass)
+);
+
+// Addition / Subtraction
+// Need to Determine what inputs to use and negate the second one if subtracting
+// rs1 + rs2 for add/sub and mulOut + rs3 for madd/msub
+reg        [31:0] addRs1;
+reg        [47:0] addRs1Sig;
+reg signed [10:0] addRs1Exp;
+reg        [5:0]  addRs1Class;
+reg        [31:0] addRs2;
+reg        [47:0] addRs2Sig;
+reg signed [10:0] addRs2Exp;
+reg        [5:0]  addRs2Class;
+
+always @(*) begin
+        if (isFMA) begin
+                addRs1      = (isFNMADD || isFNMSUB) ? {~fmulOut[31], fmulOut[30:0]} : fmulOut;
+                addRs1Sig   = fmulSig;
+                addRs1Exp   = fmulExp;
+                addRs1Class = fmulClass;
+
+                addRs2      = (isFNMSUB || isFMSUB) ? {~rs3_i[31], rs3_i[30:0]} : rs3_i;
+                addRs2Sig   = {rs3Sig, 24'b0};
+                addRs2Exp   = {rs3Exp[9], rs3Exp};
+                addRs2Class = rs3Class;
+        end else begin
+                addRs1      = rs1_i;
+                addRs1Sig   = {rs1Sig, 24'b0};
+                addRs1Exp   = {rs1Exp[9], rs1Exp};
+                addRs1Class = rs1Class;
+
+                addRs2      = (isFSUB) ? {~rs2_i[31], rs2_i[30:0]} : rs2_i;
+                addRs2Sig   = {rs2Sig, 24'b0};
+                addRs2Exp   = {rs2Exp[9], rs2Exp};
+                addRs2Class = rs2Class;
+        end
+end
+
+wire [31:0] faddOut;
+FADD fadd(
+        .rs1_i(addRs1),
+        .rs1Exp_i(addRs1Exp),
+        .rs1Sig_i(addRs1Sig),
+        .rs1Class_i(addRs1Class),
+        .rs2_i(addRs2),
+        .rs2Exp_i(addRs2Exp),
+        .rs2Sig_i(addRs2Sig),
+        .rs2Class_i(addRs2Class),
+        .rm_i(rm_i),
+        .faddOut_o(faddOut)
 );
 
 // Comparisons
@@ -86,7 +137,7 @@ FCVT fcvt(
         .rs1Sig_i(rs1Sig),
         .rs1Class_i(rs1Class),
         .instr_i(fcvtInstr),
-        .rm_i(3'b000),
+        .rm_i(rm_i),
         .fcvtOut_o(fcvtOut)
 );
 
@@ -109,6 +160,9 @@ always @(*) begin
                 isFCLASS             : out = {22'b0, rs1FullClass};
 
                 isFMUL               : out = fmulOut;
+                isFADD   | isFSUB    : out = faddOut;
+                isFMADD  | isFMSUB   : out = faddOut;
+                isFNMADD | isFNMSUB  : out = faddOut;
                 default              : out = 32'b0;
         endcase
 end
@@ -116,8 +170,8 @@ end
 /**************** RV32F Instruction Decoder ****************/
 wire isFMADD   = (instr_i[4:2] == 3'b000);
 wire isFMSUB   = (instr_i[4:2] == 3'b001);
-wire isFMNSUB  = (instr_i[4:2] == 3'b010);
-wire isFMNADD  = (instr_i[4:2] == 3'b011);
+wire isFNMSUB  = (instr_i[4:2] == 3'b010);
+wire isFNMADD  = (instr_i[4:2] == 3'b011);
 wire isFMA     = !instr_i[4];
 
 wire isFADD    = (!isFMA && (instr_i[31:27] == 5'b00000));
