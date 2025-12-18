@@ -30,6 +30,7 @@ class SOC_TB : public TESTB<VSOC> {
         IData nbRV32M = 0;
         IData nbMUL = 0;
         IData nbDIV = 0;
+        IData nbFPU = 0;
 
         void updateStats(void) {
                 if (m_core->RESET == 0 && rootp->D_stall == 0) {
@@ -58,6 +59,8 @@ class SOC_TB : public TESTB<VSOC> {
                         nbMUL++;
                 if (riscV_isDiv(rootp->MW_instr))
                         nbDIV++;
+                if (riscV_isFPU(rootp->MW_instr))
+                        nbFPU++;
                 if (rootp->dataHazard == 1)
                         nbLoadHazard++;
         }
@@ -111,7 +114,8 @@ public:
                 printf("Load:%3.3f\%% | ",      nbLoad*100.0/instret);
                 printf("Store:%3.3f\%% | ",     nbStore*100.0/instret);
                 printf("MUL(HSU):%3.3f\%% | ", nbMUL*100.0/instret);
-                printf("DIV/REM:%3.3f\%%",   nbDIV*100.0/instret);
+                printf("DIV/REM:%3.3f\%% | ",   nbDIV*100.0/instret);
+                printf("FPU:%3.3f\%%",         nbFPU*100.0/instret);
                 printf(")\n");
         }
 

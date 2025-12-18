@@ -11,7 +11,7 @@
 /* Bruno Levy, 2020                                                */
 /* Original tinyraytracer: https://github.com/ssloy/tinyraytracer  */
 
-#include <stdio.h>
+#include "libs/printf.h"
 #include <stdint.h>
 #include <math.h>
 #include <stdlib.h>

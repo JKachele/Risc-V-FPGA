@@ -87,3 +87,6 @@ bool riscV_isDiv(u32 instruction) {
         return riscV_isRV32M(instruction) && (funct3(instruction) >= 0b100);
 }
 
+bool riscV_isFPU(u32 instruction) {
+        return (instruction & 0b1100000) == 0b1000000;
+}

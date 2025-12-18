@@ -27,6 +27,7 @@ bool riscV_isSYS(u32 instruction);
 bool riscV_isRV32M(u32 instruction);
 bool riscV_isMul(u32 instruction);
 bool riscV_isDiv(u32 instruction);
+bool riscV_isFPU(u32 instruction);
 
 #endif
 
