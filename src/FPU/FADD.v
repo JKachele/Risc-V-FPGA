@@ -19,12 +19,7 @@ module FADD (
 
         output wire        [31:0] faddOut_o
 );
-localparam CLASS_BIT_ZERO = 0;
-localparam CLASS_BIT_SUB  = 1;
-localparam CLASS_BIT_NORM = 2;
-localparam CLASS_BIT_INF  = 3;
-localparam CLASS_BIT_SNAN = 4;
-localparam CLASS_BIT_QNAN = 5;
+`include "src/FPU/FClassFlags.vh"
 
 localparam FMAX = 32'h7F7FFFFF;
 localparam FMIN = 32'hFF7FFFFF;
@@ -61,11 +56,11 @@ CLZ clz({15'b0, sumSig}, sumSigCLZ);
 wire [5:0] normShamt = sumSigCLZ - 16;
 
 // Rounding
-reg signed [48:0] outSig;
-wire [22:0] sumSigRound;
-wire [7:0]  sumExpRound;
-FRound #(.nInt(48)) round(
-        sumSign, outSig[47:0], biasExp[7:0], rm_i,
+reg  signed [48:0] outSig;
+wire        [23:0] sumSigRound;
+wire signed [10:0] sumExpRound;
+FRound #(.nInt(48),.nExp(9)) round(
+        sumSign, outSig[47:0], adjExpNorm, rm_i,
         sumSigRound, sumExpRound
 );
 
@@ -153,8 +148,7 @@ always @(*) begin
                 // Subnormal
                 else if (adjExpNorm < -126) begin
                         outSig = sumSigNorm >> (-126 - adjExpNorm);
-                        biasExp = 0;
-                        out = {sumSign, 8'b0, sumSigRound};
+                        out = {sumSign, 8'b0, sumSigRound[22:0]};
                 end
                 // Overflow
                 else if (adjExpNorm > 127) begin
@@ -163,8 +157,8 @@ always @(*) begin
                 // Normal
                 else begin
                         outSig = sumSigNorm;
-                        biasExp = adjExpNorm + 127;
-                        out = {sumSign, sumExpRound, sumSigRound};
+                        biasExp = sumExpRound + 127;
+                        out = {sumSign, biasExp[7:0], sumSigRound[22:0]};
                 end
         end
 end

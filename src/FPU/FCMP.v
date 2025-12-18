@@ -18,28 +18,36 @@ module FCMP (
 
         output wire [2:0]  fcmp_o // {FLT, FLE, FEQ}
 );
-localparam CLASS_ZERO = 0;
-localparam CLASS_SUB  = 1;
-localparam CLASS_NORM = 2;
-localparam CLASS_INF  = 3;
-localparam CLASS_SNAN = 4;
-localparam CLASS_QNAN = 5;
+`include "src/FPU/FClassFlags.vh"
 
 reg [2:0] out;
 assign fcmp_o = out;
 
 always @(*) begin
         // If either input is NaN, output is 0 for all comparisons
-        if (rs1Class_i[CLASS_QNAN] || rs2Class_i[CLASS_QNAN] ||
-                rs1Class_i[CLASS_SNAN] || rs2Class_i[CLASS_SNAN]) begin
-                out = 3'b0;
-        end else if (rs1Class_i[CLASS_INF]) begin
-                if (rs2Class_i[CLASS_INF])
-                        out = 3'b011;
-                else 
-                        out = 3'b0;
-        end else if (rs2Class_i[CLASS_INF]) begin
-                out = 3'b110;
+        if (rs1Class_i[CLASS_BIT_QNAN] || rs2Class_i[CLASS_BIT_QNAN] ||
+                rs1Class_i[CLASS_BIT_SNAN] || rs2Class_i[CLASS_BIT_SNAN]) begin
+                out = 3'b000;
+        end
+        // Compare with infinity
+        else if (rs1Class_i[CLASS_BIT_INF]) begin
+                if (~rs1_i[31]) begin
+                        if (rs2Class_i[CLASS_BIT_INF] && !rs2_i[31])
+                                out = 3'b011;
+                        else
+                                out = 3'b000;
+                end else begin
+                        if (rs2Class_i[CLASS_BIT_INF] && rs2_i[31])
+                                out = 3'b011;
+                        else
+                                out = 3'b110;
+                end
+        end else if (rs2Class_i[CLASS_BIT_INF]) begin
+                out = (rs2_i[31]) ? 3'b000 : 3'b110;
+        end
+        // +0 = -0
+        else if (rs1Class_i[CLASS_BIT_ZERO] && rs2Class_i[CLASS_BIT_ZERO]) begin
+                out = 3'b011;
         end else begin
                 out = {X_LT_Y, X_LE_Y, X_EQ_Y};
         end

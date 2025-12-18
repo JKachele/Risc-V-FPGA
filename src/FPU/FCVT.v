@@ -16,24 +16,21 @@ module FCVT (
 
         output wire        [31:0] fcvtOut_o
 );
-localparam CLASS_INF    = 3;
-localparam CLASS_SNAN   = 4;
-localparam CLASS_QNAN   = 5;
-localparam INF_NAN_MASK = 6'b111000;
+`include "src/FPU/FClassFlags.vh"
 
-assign fcvtOut_o = instr_i[1] ? ftoiOut : {outSign, outExp, outSig};
+assign fcvtOut_o = instr_i[1] ? ftoiOut : {outSign, outExp[7:0], outSig[22:0]};
 
 // Int -> float conversion
 reg         outSign;
-wire [7:0]  outExp;
-wire [22:0] outSig;
+wire [9:0]  outExp;
+wire [23:0] outSig;
 
 reg  [31:0] unsignedRs1;
 wire [4:0]  intClz;
 CLZ #(.W_IN(32))clz(unsignedRs1, intClz);
 
 reg [31:0] normalSig;
-reg [7:0] normalExp;
+reg [9:0] normalExp;
 FRound round(outSign, normalSig, normalExp, rm_i, outSig, outExp);
 
 always @(*) begin
@@ -57,7 +54,7 @@ always @(*) begin
                 // Shift so leading 1 is at bit 31.
                 // Set exponent to (32 - clz - 1) + 127 = 158 - clz
                 normalSig = unsignedRs1 << intClz;
-                normalExp = 158 - {3'b0, intClz};
+                normalExp = 158 - {5'b0, intClz};
         end
 end
 
@@ -80,7 +77,7 @@ always @(*) begin
                 ftoiNormal = 32'b0;
         end
         // Negative infinity returns min value for signed conversion
-        else if (rs1_i[31] && rs1Class_i[CLASS_INF]) begin
+        else if (rs1_i[31] && rs1Class_i[CLASS_BIT_INF]) begin
                 ftoiNormal = 32'h80000000;
         end
         // Positive infinity and NaN returns max value

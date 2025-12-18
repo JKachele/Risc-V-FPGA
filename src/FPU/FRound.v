@@ -11,18 +11,18 @@ module FRound #(
         parameter nExp = 8,
         parameter nSig = 23
 )(
-        input  wire        sign_i,
-        input  wire [nInt-1:0] sig_i,       // MSB is implied 1
-        input  wire [nExp-1:0]  exp_i,
-        input  wire [2:0]  rm_i,
+        input  wire                   sign_i,
+        input  wire        [nInt-1:0] sig_i,       // MSB is implied 1
+        input  wire signed [nExp+1:0] exp_i,
+        input  wire        [2:0]      rm_i,
 
-        output wire [nSig-1:0] sig_o,
-        output wire [nExp-1:0]  exp_o
+        output wire        [nSig:0]   sig_o,
+        output wire signed [nExp+1:0] exp_o
 );
 localparam nRound = nInt - nSig - 1;
 
-reg  [nSig-1:0] sigOut;
-reg  [nExp-1:0]  expOut;
+reg        [nSig:0]   sigOut;
+reg signed [nExp+1:0] expOut;
 assign sig_o = sigOut;
 assign exp_o = expOut;
 
@@ -101,106 +101,10 @@ always @(*) begin
         /************************ Perform Rounding ************************/
         roundedSig = {1'b0, sig_i[nInt-1:nRound]} + {{nSig+1{1'b0}}, roundUp};
         if (roundedSig[nSig+1]) begin
-                sigOut = roundedSig[nSig:1];
+                sigOut = roundedSig[nSig+1:1];
                 expOut = exp_i + 1;
         end else begin
-                sigOut = roundedSig[nSig-1:0];
-                expOut = exp_i;
-        end
-end
-
-endmodule
-
-module FRoundOld (
-        input  wire        sign_i,
-        input  wire [31:0] sig_i,       // MSB must be a 1
-        input  wire [7:0]  exp_i,
-        input  wire [2:0]  rm_i,
-
-        output wire [22:0] sig_o,
-        output wire [7:0]  exp_o
-);
-
-reg  [22:0] sigOut;
-reg  [7:0]  expOut;
-assign sig_o = sigOut;
-assign exp_o = expOut;
-
-wire [7:0] roundBits = sig_i[7:0];
-reg        roundBit; // 1 if rounding up
-
-reg [23:0] roundedSig;
-
-always @(*) begin
-        /************************ Nearest Ties to Even ************************/
-        if (rm_i == 3'b000) begin
-                // Round down
-                if (roundBits[7] == 1'b0) begin
-                        roundBit = 1'b0;
-                end
-                // Round up
-                else if (|roundBits[6:0]) begin
-                        roundBit = 1'b1;
-                end
-                // Ties to Even
-                else if (sig_i[8]) begin // Odd
-                        roundBit = 1'b1;
-                end else begin // Even
-                        roundBit = 1'b0;
-                end
-        end
-        /************************ Round Towards Zero ************************/
-        else if (rm_i == 3'b001) begin
-                // Always round down
-                roundBit = 1'b0;
-        end
-        /************************ Round Towards Negative Infinity ************************/
-        else if (rm_i == 3'b010) begin
-                // Positives round down, Negatives round up if needed
-                // if all roundBits are 0, no rounding is needed
-                if (sign_i && |roundBits) begin
-                        roundBit = 1'b1;
-                end else begin
-                        roundBit = 1'b0;
-                end
-        end
-        /************************ Round Towards Positive Infinity ************************/
-        else if (rm_i == 3'b011) begin
-                // Positives round up, Negatives round down
-                // if all roundBits are 0, no rounding is needed
-                if (~sign_i && |roundBits) begin
-                        roundBit = 1'b1;
-                end else begin
-                        roundBit = 1'b0;
-                end
-        end
-        /************************ Nearest Ties to Max Magnitude ************************/
-        else if (rm_i == 3'b100) begin
-                // Round down
-                if (roundBits[7] == 1'b0) begin
-                        roundBit = 1'b0;
-                end
-                // Round up
-                else if (|roundBits[6:0]) begin
-                        roundBit = 1'b1;
-                end
-                // Ties to Max Magnitude (Round up)
-                else begin
-                        roundBit = 1'b1;
-                end
-        end
-        // Other rounding modes are reserved. Default to truncate
-        else begin
-                roundBit = 1'b0;
-        end
-
-        /************************ Perform Rounding ************************/
-        roundedSig = {1'b0, sig_i[30:8]} + {23'b0, roundBit};
-        if (roundedSig[23]) begin
-                sigOut = roundedSig[23:1];
-                expOut = exp_i + 1;
-        end else begin
-                sigOut = roundedSig[22:0];
+                sigOut = roundedSig[nSig:0];
                 expOut = exp_i;
         end
 end

@@ -18,6 +18,7 @@ module FClass #(
         output wire        [5:0]  class_o,
         output wire        [9:0]  fullClass_o
 );
+`include "src/FPU/FClassFlags.vh"
 
 wire regExpZ   = (reg_i[FLen-2:SigLen] == 0);
 wire regExp255 = (reg_i[FLen-2:SigLen] == 255);
@@ -45,13 +46,6 @@ assign fullClass_o = {
         reg_i[FLen-1]   &  regExp255 &  regSigniZ     // 0: -infinity
         };
 
-localparam CLASS_ZERO = 0;
-localparam CLASS_SUB  = 1;
-localparam CLASS_NORM = 2;
-localparam CLASS_INF  = 3;
-localparam CLASS_SNAN = 4;
-localparam CLASS_QNAN = 5;
-
 // First bit set = 31 - clz
 wire [4:0] sigClz;
 CLZ #(.W_IN(32))clz({9'b0, reg_i[22:0]}, sigClz);
@@ -62,7 +56,7 @@ wire [4:0] lshamt = sigClz - 8;
 always @(*) begin
         regExp_o = reg_i[30:23] - 127;
         regSig_o = {1'b1, reg_i[22:0]};
-        if (class_o[CLASS_SUB]) begin
+        if (class_o[CLASS_BIT_SUB]) begin
                 regExp_o = -126 - lshamt;
                 regSig_o = regSig_o << lshamt;
         end

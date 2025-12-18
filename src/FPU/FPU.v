@@ -17,12 +17,13 @@ module FPU (
         input  wire [31:0] rs3_i,
         input  wire [2:0]  rm_i,
 
-        output reg         busy_o,
+        output wire        busy_o,
         output wire [31:0] fpuOut_o
 );
 
 reg [31:0] out;
 assign fpuOut_o = out;
+assign busy_o = (isFDIV & ~fdivReady);
 
 // Decode floating point numbers
 wire        [9:0]  rs1FullClass;
@@ -114,6 +115,26 @@ FADD fadd(
         .faddOut_o(faddOut)
 );
 
+// Division
+wire [31:0] fdivOut;
+wire        fdivReady;
+FDIV fdiv(
+        .clk_i(clk_i),
+        .reset_i(reset_i),
+        .divEnable_i(isFDIV),
+        .rs1_i(rs1_i),
+        .rs1Exp_i(rs1Exp),
+        .rs1Sig_i(rs1Sig),
+        .rs1Class_i(rs1Class),
+        .rs2_i(rs2_i),
+        .rs2Exp_i(rs2Exp),
+        .rs2Sig_i(rs2Sig),
+        .rs2Class_i(rs2Class),
+        .rm_i(rm_i),
+        .ready_o(fdivReady),
+        .fdivOut_o(fdivOut)
+);
+
 // Comparisons
 wire [2:0] fcmpOut; // {FLT, FLE, FEQ}
 FCMP fcmp(
@@ -142,7 +163,6 @@ FCVT fcvt(
 );
 
 always @(*) begin
-        busy_o = 1'b0;
         case (1'b1)
                 // Move and convert
                 isFSGNJ              : out = {           rs2_i[31], rs1_i[30:0]};
@@ -163,6 +183,7 @@ always @(*) begin
                 isFADD   | isFSUB    : out = faddOut;
                 isFMADD  | isFMSUB   : out = faddOut;
                 isFNMADD | isFNMSUB  : out = faddOut;
+                isFDIV               : out = fdivOut;
                 default              : out = 32'b0;
         endcase
 end

@@ -22,6 +22,7 @@ module FMUL (
         output wire        [47:0] sig_o,
         output wire        [5:0]  class_o
 );
+`include "src/FPU/FClassFlags.vh"
 
 reg [31:0] out;
 reg [5:0]  outClass;
@@ -39,22 +40,9 @@ reg         [47:0] outSig;
 reg  signed [10:0] outExp;
 reg         [10:0] outExpBiased;
 
-wire        [22:0] outSigRound;
-wire        [7:0]  outExpRound;
-FRound #(.nInt(48)) round(outSign, outSig, outExpBiased[7:0], rm_i, outSigRound, outExpRound);
-
-localparam CLASS_BIT_ZERO = 0;
-localparam CLASS_BIT_SUB  = 1;
-localparam CLASS_BIT_NORM = 2;
-localparam CLASS_BIT_INF  = 3;
-localparam CLASS_BIT_SNAN = 4;
-localparam CLASS_BIT_QNAN = 5;
-localparam CLASS_ZERO = 6'b000001;
-localparam CLASS_SUB  = 6'b000010;
-localparam CLASS_NORM = 6'b000100;
-localparam CLASS_INF  = 6'b001000;
-localparam CLASS_SNAN = 6'b010000;
-localparam CLASS_QNAN = 6'b100000;
+wire        [23:0] outSigRound;
+wire        [10:0] outExpRound;
+FRound #(.nInt(48),.nExp(9)) round(outSign, outSig, outExp, rm_i, outSigRound, outExpRound);
 
 always @(*) begin
         outSigNorm = 48'b0;
@@ -111,8 +99,7 @@ always @(*) begin
                 // Subnormal
                 else if (outExp < -126) begin
                         outSig = outSigNorm >> (-126 - outExp);
-                        outExpBiased = 0;
-                        out = {outSign, 8'b0, outSigRound};
+                        out = {outSign, 8'b0, outSigRound[22:0]};
                         outClass = CLASS_SUB;
                 end
                 // Overflow
@@ -123,8 +110,8 @@ always @(*) begin
                 // Normal
                 else begin
                         outSig = outSigNorm;
-                        outExpBiased = outExp + 127;
-                        out = {outSign, outExpRound, outSigRound};
+                        outExpBiased = outExpRound + 127;
+                        out = {outSign, outExpBiased[7:0], outSigRound[22:0]};
                         outClass = CLASS_NORM;
                 end
         end

@@ -6,18 +6,18 @@
  *License-------GNU GPL-3.0
  ************************************************/
 
-#include <stdio.h>
+#include "libs/printf.h"
 #include <math.h>
 
 int main(void) {
-    // printf("Hello, World!\n");
+        // printf("Hello, World!\n");
 
-    int a = 2147483647;
-    float f = (float)a;
-    int b = (int)f;
+        float a = NAN;
+        float b = 3.14f;
+        float r = a / b;
+        printf("%f\n", r);
 
-    printf("%d -> %f -> %d\n", a, f, b);
 
-    return 0;
+        return 0;
 }
 
