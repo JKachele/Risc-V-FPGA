@@ -13,7 +13,22 @@
 #include <stdbool.h>
 #include <inttypes.h>
 
+
 /* --------------------------------------------------------------------- */
+/* Use FSQRT.S instruction for square root calculation */
+// static float fsqrt(float x)
+// {
+//         float ans;
+//         asm(
+//                         "fmv.w.x fa0, %1\n"
+//                         "fsqrt.s fa0, fa0\n"
+//                         "fmv.x.w %0, fa0\n"
+//                         : "=r"(ans)
+//                         : "r"(x)
+//                         :);
+//         return ans;
+// }
+
 /* Helper: view a float as its 32‑bit pattern */
 static uint32_t float_bits(float f)
 {
@@ -292,8 +307,6 @@ static bool test_division(void)
 
                 r = nan / a;
                 if (!isnan(r)) {
-                        printf("\n%x\n", *(long*)&nan);
-                        printf("\n%x\n", *(long*)&r);
                         printf("FAIL NaN / finite: NaN / %g = %g, expected NaN\n", a, r);
                         return false;
                 }
@@ -308,6 +321,164 @@ static bool test_division(void)
         /* -------------------------------------------------------------
            All division tests passed.
            ------------------------------------------------------------- */
+        return true;
+}
+
+/* --------------------------------------------------------------------- */
+/* Square‑root tests – exact results, inexact rounding, subnormal handling,
+   overflow/underflow, NaNs, infinities and the negative‑operand domain. */
+
+static bool test_sqrt(void)
+{
+        /* -------------------------------------------------------------
+           1) Exact square‑roots – the result is exactly representable.
+           ------------------------------------------------------------- */
+        {
+                struct { float x; float expected; } cases[] = {
+                        { 0.0f,               0.0f },          /* +0 → +0 */
+                        { 1.0f,               1.0f },          /* 1 → 1 */
+                        { 4.0f,               2.0f },          /* 4 → 2 */
+                        { 9.0f,               3.0f },          /* 9 → 3 */
+                        { 2.25f,              1.5f },          /* 2.25 → 1.5 */
+                        { 65536.0f,           256.0f }         /* 2^16 → 2^8 */
+                };
+
+                for (size_t i = 0; i < sizeof(cases)/sizeof(cases[0]); ++i) {
+                        float r = sqrtf(cases[i].x);
+                        if (!almost_equal_ulps(r, cases[i].expected, 0)) {
+                                printf("FAIL sqrt exact: sqrt(%g) = %.9g, expected %.9g\n",
+                                                cases[i].x, r, cases[i].expected);
+                                return false;
+                        }
+                }
+        }
+
+        /* -------------------------------------------------------------
+           2) Inexact result – must round to nearest‑even.
+           The value 0.5f is not a perfect square; the exact sqrt is
+           0.7071067811865475…  The two nearest single‑precision numbers are
+           0x3f3504f3 (≈0.70710677) and 0x3f3504f4 (≈0.70710683).
+           The even mantissa is 0x3f3504f4, so the rounded result should be
+           that value.
+           ------------------------------------------------------------- */
+        {
+                float x = 0.5f;
+                float r = sqrtf(x);
+
+                const uint32_t expected_bits = 0x3f3504f3U;
+                union { uint32_t u; float f; } u = { .u = expected_bits };
+                float expected = u.f;                       /* ≈0.707106769f */
+
+                if (!almost_equal_ulps(r, expected, 0)) {
+                        printf("FAIL sqrt rounding: sqrt(0.5) = %.9g, expected %.9g\n",
+                                        r, expected);
+                        return false;
+                }
+        }
+
+        /* -------------------------------------------------------------
+           3) Underflow to a subnormal result.
+           sqrt(2⁻¹⁴⁶) = 2⁻⁷³ which is a *normal* 
+           ------------------------------------------------------------- */
+        {
+                float tiny = ldexpf(1.0f, -146);   /* 2⁻¹⁴⁶ */
+                float r = sqrtf(tiny);
+                const uint32_t expected_bits = 0x1B000000U;   /* 2⁻⁷³ */
+                union { uint32_t u; float f; } u = { .u = expected_bits };
+                float expected = u.f;
+
+                if (!almost_equal_ulps(r, expected, 0)) {
+                        printf("FAIL sqrt subnormal: sqrt(2^-146) = %.9g, expected %.9g\n",
+                                        r, expected);
+                        return false;
+                }
+        }
+
+        /* -------------------------------------------------------------
+           4) Overflow – sqrt of a value larger than FLT_MAX² would overflow,
+           but the largest finite input we can give is FLT_MAX.
+           sqrt(FLT_MAX) is a finite number (≈ 1.8446743e19) that is
+           representable; however, sqrt(FLT_MAX * 2) would produce +inf.
+           We test the latter case using a value that is *guaranteed* to
+           overflow when squared.
+           ------------------------------------------------------------- */
+        {
+                float overflow_input = ldexpf(1.0f, 128);   /* 2¹²⁸ ≈ 3.4e38, > FLT_MAX */
+                float r = sqrtf(overflow_input);
+                if (!isinf(r) || r < 0) {
+                        printf("FAIL sqrt overflow: sqrt(%e) = %e, expected +inf\n",
+                                        overflow_input, r);
+                        return false;
+                }
+        }
+
+        /* -------------------------------------------------------------
+           5) Zero handling – +0 and –0 both yield +0.  The sign of zero is
+           preserved for the *result* (IEEE‑754 says sqrt(-0) = -0).
+           ------------------------------------------------------------- */
+        {
+                float pos0 = 0.0f;
+                float neg0 = -0.0f;
+
+                float rpos = sqrtf(pos0);
+                float rneg = sqrtf(neg0);
+
+                if (signbit(rpos)) {
+                        printf("FAIL sqrt +0: result has sign bit set\n");
+                        return false;
+                }
+                if (!signbit(rneg)) {
+                        printf("FAIL sqrt -0: result sign bit not set (expected -0)\n");
+                        return false;
+                }
+        }
+
+        /* -------------------------------------------------------------
+           6) Infinity – sqrt(+inf) = +inf, sqrt(-inf) = NaN.
+           ------------------------------------------------------------- */
+        {
+                float posinf = INFINITY;
+                float neginf = -INFINITY;
+
+                float rpos = sqrtf(posinf);
+                if (!isinf(rpos) || rpos < 0) {
+                        printf("FAIL sqrt +inf: result %g, expected +inf\n", rpos);
+                        return false;
+                }
+
+                float rneg = sqrtf(neginf);
+                if (!isnan(rneg)) {
+                        printf("FAIL sqrt -inf: result %g, expected NaN\n", rneg);
+                        return false;
+                }
+        }
+
+        /* -------------------------------------------------------------
+           7) NaN – any NaN input must propagate as NaN.
+           ------------------------------------------------------------- */
+        {
+                float nan = NAN;
+                float r = sqrtf(nan);
+                if (!isnan(r)) {
+                        printf("FAIL sqrt NaN: result %g, expected NaN\n", r);
+                        return false;
+                }
+        }
+
+        /* -------------------------------------------------------------
+           8) Negative finite operand – sqrt of a negative number yields NaN.
+           ------------------------------------------------------------- */
+        {
+                float neg = -4.0f;
+                float r = sqrtf(neg);
+                if (!isnan(r)) {
+                        printf("FAIL sqrt negative: sqrt(%g) = %g, expected NaN\n",
+                                        neg, r);
+                        return false;
+                }
+        }
+
+        /* All square‑root tests passed */
         return true;
 }
 
@@ -376,6 +547,7 @@ int main(void)
                 { "Subtraction",             test_subtraction },
                 { "Multiplication",          test_multiplication },
                 { "Division",                test_division },
+                { "Square Root",             test_sqrt },
                 { "Int ↔ Float Conversion",  test_conversion_int_float },
         };
 

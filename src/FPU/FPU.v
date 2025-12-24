@@ -23,7 +23,7 @@ module FPU (
 
 reg [31:0] out;
 assign fpuOut_o = out;
-assign busy_o = (isFDIV & ~fdivReady);
+assign busy_o = fpuEnable_i & ((isFDIV & ~fdivReady) | (isFSQRT & ~fsqrtReady));
 
 // Decode floating point numbers
 wire        [9:0]  rs1FullClass;
@@ -121,7 +121,7 @@ wire        fdivReady;
 FDIV fdiv(
         .clk_i(clk_i),
         .reset_i(reset_i),
-        .divEnable_i(isFDIV),
+        .divEnable_i(fpuEnable_i & isFDIV),
         .rs1_i(rs1_i),
         .rs1Exp_i(rs1Exp),
         .rs1Sig_i(rs1Sig),
@@ -133,6 +133,22 @@ FDIV fdiv(
         .rm_i(rm_i),
         .ready_o(fdivReady),
         .fdivOut_o(fdivOut)
+);
+
+// Square Root
+wire [31:0] fsqrtOut;
+wire        fsqrtReady;
+FSQRT fsqrt(
+        .clk_i(clk_i),
+        .reset_i(reset_i),
+        .sqrtEnable_i(fpuEnable_i & isFSQRT),
+        .rs1_i(rs1_i),
+        .rs1Exp_i(rs1Exp),
+        .rs1Sig_i(rs1Sig),
+        .rs1Class_i(rs1Class),
+        .rm_i(rm_i),
+        .ready_o(fsqrtReady),
+        .fsqrtOut_o(fsqrtOut)
 );
 
 // Comparisons
@@ -184,6 +200,7 @@ always @(*) begin
                 isFMADD  | isFMSUB   : out = faddOut;
                 isFNMADD | isFNMSUB  : out = faddOut;
                 isFDIV               : out = fdivOut;
+                isFSQRT              : out = fsqrtOut;
                 default              : out = 32'b0;
         endcase
 end

@@ -16,6 +16,7 @@ OBJCOPY := $(RVTOOL_PREFIX)-objcopy
 OBJDUMP := $(RVTOOL_PREFIX)-objdump
 CFLAGS  := -march=$(RVARCH) -mabi=$(RVABI) -Wno-builtin-declaration-mismatch
 CFLAGS  += -fno-pic -fno-stack-protector -w -nostdlib
+# CFLAGS  += -O2
 LDFLAGS := -m elf32lriscv -nostdlib
 LDFLAGS += -L$(RV_LIB_DIR) -lm $(GCC_LIB_DIR)/libgcc.a
 ODFLAGS := -sj .data -dj .text
@@ -35,7 +36,7 @@ BIN_DIR := bin
 BUILD_DIR := build
 
 # Firmware
-SRC := firmware/startPipeline.S firmware/raystones.c
+SRC := firmware/startPipeline.S firmware/Test.c
 SRC += $(wildcard firmware/libs/*.S) $(wildcard firmware/libs/*.c) 
 OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
 LDSCRIPT = firmware/ram.ld

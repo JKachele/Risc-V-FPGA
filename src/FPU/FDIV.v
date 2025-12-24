@@ -61,7 +61,9 @@ wire signed [9:0]  expOut;
 FRound #(.nInt(52)) round(qSign, {qSig, aSig}, expIn, rm_i, sigOut, expOut);
 
 always @(posedge clk_i) begin
-        if (divEnable_i && counter == 0 && !reset_i) begin
+        if (!divEnable_i) begin
+                counter <= 0;
+        end else if (counter == 0 && !reset_i) begin
                 // Treat special cases as default
                 special <= 1'b1;
                 counter <= SPECIAL_CYCLES;

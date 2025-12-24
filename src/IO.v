@@ -39,19 +39,20 @@ assign IO_memRData_o = IO_wordAddr[IO_UART_CTRL_bit] ? {22'b0, uartBusy, 9'b0}
 // 115200 baud, 8-bit, no parity, 1 stop bit
 localparam UART_SETUP = {1'b0, 2'b00, 1'b0, 3'b000, 24'h000364};
 
-txuart TXUART (
-        .i_clk(clk_i),
-        .i_reset(reset_i),
-        .i_setup(UART_SETUP),
-        .i_break(0),
-        .i_wr(uartValid),
-        .i_data(IO_memWData_i[7:0]),
-        .i_cts_n(0),
-        .o_uart_tx(txd_o),
-        .o_busy(uartBusy)
-);
-
-`ifdef BENCH
+`ifndef BENCH
+        txuart TXUART (
+                .i_clk(clk_i),
+                .i_reset(reset_i),
+                .i_setup(UART_SETUP),
+                .i_break(0),
+                .i_wr(uartValid),
+                .i_data(IO_memWData_i[7:0]),
+                .i_cts_n(0),
+                .o_uart_tx(txd_o),
+                .o_busy(uartBusy)
+        );
+`else
+        assign uartBusy = 1'b0;
         always @(posedge clk_i) begin
                 if(uartValid) begin
                         $write("%c", IO_memWData_i[7:0]);
