@@ -137,9 +137,12 @@ wire D_isEBREAK = D_isSYS & (D_funct3 == 3'b000) & FD_instr_i[20] & ~FD_instr_i[
 wire D_isCSR = D_isSYS & ((D_funct3 != 3'b000) & (D_funct3 != 3'b100));
 wire [11:0] D_csrId = FD_instr_i[31:20];
 
+wire D_isLoadOrAMO  = D_isLoad  || D_isAMO;
+wire D_isStoreOrAMO = D_isStore || D_isAMO;
+
 wire D_readsRs1 = !(D_isJAL || D_isLUI || D_isAUIPC);
 
-wire D_readsRs2 = (D_isStore || D_isBranch || D_isALUR || D_isFPU);
+wire D_readsRs2 = (D_isStoreOrAMO || D_isBranch || D_isALUR || D_isFPU);
 
 wire D_isRV32M = D_isALUR  & FD_instr_i[25];
 wire D_isMUL   = D_isRV32M & !FD_instr_i[14];
@@ -262,7 +265,7 @@ always @(posedge clk_i) begin
                 DE_isMUL_o   <= D_isMUL;
                 DE_isDIV_o   <= D_isDIV;
 
-                DE_wbEnable_o <= ~(D_isBranch | D_isStore);
+                DE_wbEnable_o <= ~(D_isBranch | D_isStoreOrAMO);
 
                 DE_predictBranch_o <= D_predictBranch;
                 DE_bhtIndex_o <= D_bhtIndex;
@@ -298,8 +301,8 @@ wire rs1Hazard = D_readsRs1 && (D_rs1Id == DE_rdId_o);
 wire rs2Hazard = D_readsRs2 && (D_rs2Id == DE_rdId_o);
 
 assign dataHazard_o = !FD_nop_i &&
-        ((DE_isLoad_o || DE_isCSR_o) && (rs1Hazard || rs2Hazard)) ||
-        (D_isLoad && DE_isStore_o);
+        ((DE_isLoad_o || DE_isAMO_o || DE_isCSR_o) && (rs1Hazard || rs2Hazard)) ||
+        (D_isLoadOrAMO && (DE_isStore_o || DE_isAMO_o));
 
 endmodule
 /* verilator lint_on WIDTH */

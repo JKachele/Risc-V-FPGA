@@ -79,9 +79,6 @@ public:
                         printf("\n");
                 }
                 prevLEDS = m_core->LEDS;
-                // if (rootp->SOC__DOT__CPU__DOT__DE_isAMO == 1) {
-                //         printf("AMO!!\n");
-                // }
                 updateStats();
         }
 

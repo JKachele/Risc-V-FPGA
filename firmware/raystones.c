@@ -513,10 +513,10 @@ int main() {
         printf("Running without graphic output (for accurate measurement)...\n");
         render(spheres, nb_spheres, lights, nb_lights);
 
-        bench_run = 0;
-        graphics_width = 120;
-        graphics_height = 60;
-        render(spheres, nb_spheres, lights, nb_lights);
+        // bench_run = 0;
+        // graphics_width = 120;
+        // graphics_height = 60;
+        // render(spheres, nb_spheres, lights, nb_lights);
         graphics_terminate();
 
         return 0;
