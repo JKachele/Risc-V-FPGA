@@ -3,7 +3,7 @@
 # @file        : Makefile
 # @created     : Friday Oct 17, 2025 14:39:28 UTC
 ######################################################################
-RVARCH = rv32imf
+RVARCH = rv32imaf
 RVABI = ilp32f
 RVTOOL_PREFIX := riscv64-unknown-elf
 RVTOOL_DIR := /opt/riscv
