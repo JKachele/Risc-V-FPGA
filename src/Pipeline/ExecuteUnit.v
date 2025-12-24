@@ -85,6 +85,7 @@ module ExecuteUnit (
         output reg  [11:0] EM_csrId_o,
         output reg  [31:0] EM_rs2_o,
         output reg  [2:0]  EM_funct3_o,
+        output reg  [6:0]  EM_funct7_o,
         output reg  [31:0] EM_Eresult_o,
         output reg  [31:0] EM_addr_o,
         output reg  [31:0] EM_Mdata_o,
@@ -303,6 +304,7 @@ always @(posedge clk_i) begin
                 EM_rs2Id_o <= DE_rs2Id_i;
                 EM_csrId_o <= DE_csrId_i;
                 EM_funct3_o <= DE_funct3_i;
+                EM_funct7_o <= DE_funct7_i;
                 EM_rs2_o <= E_rs2;
                 EM_Eresult_o <= E_result;
                 EM_addr_o <= E_addr;
