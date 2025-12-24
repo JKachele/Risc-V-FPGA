@@ -50,6 +50,7 @@ reg [31:0] reg_28;
 reg [31:0] reg_29;
 reg [31:0] reg_30;
 reg [31:0] reg_31;
+reg [31:0] reg_F0;
 reg [31:0] reg_F1;
 reg [31:0] reg_F2;
 reg [31:0] reg_F3;
@@ -83,38 +84,71 @@ reg [31:0] reg_F30;
 reg [31:0] reg_F31;
 
 // ABI Register Names
-wire [31:0] x0_zero = 32'b0;
-wire [31:0] x1_ra   = reg_1;
-wire [31:0] x2_sp   = reg_2;
-wire [31:0] x3_gp   = reg_3;
-wire [31:0] x4_tp   = reg_4;
-wire [31:0] x5_t0   = reg_5;
-wire [31:0] x6_t1   = reg_6;
-wire [31:0] x7_t2   = reg_7;
-wire [31:0] x8_s0   = reg_8;
-wire [31:0] x9_s1   = reg_9;
-wire [31:0] x10_a0  = reg_10;
-wire [31:0] x11_a1  = reg_11;
-wire [31:0] x12_a2  = reg_12;
-wire [31:0] x13_a3  = reg_13;
-wire [31:0] x14_a4  = reg_14;
-wire [31:0] x15_a5  = reg_15;
-wire [31:0] x16_a6  = reg_16;
-wire [31:0] x17_a7  = reg_17;
-wire [31:0] x18_s2  = reg_18;
-wire [31:0] x19_s3  = reg_19;
-wire [31:0] x20_s4  = reg_20;
-wire [31:0] x21_s5  = reg_21;
-wire [31:0] x22_s6  = reg_22;
-wire [31:0] x23_s7  = reg_23;
-wire [31:0] x24_s8  = reg_24;
-wire [31:0] x25_s9  = reg_25;
-wire [31:0] x26_s10 = reg_26;
-wire [31:0] x27_s11 = reg_27;
-wire [31:0] x28_t3  = reg_28;
-wire [31:0] x29_t4  = reg_29;
-wire [31:0] x30_t5  = reg_30;
-wire [31:0] x31_t6  = reg_31;
+wire [31:0] zero = 32'b0;
+wire [31:0] ra   = reg_1;
+wire [31:0] sp   = reg_2;
+wire [31:0] gp   = reg_3;
+wire [31:0] tp   = reg_4;
+wire [31:0] t0   = reg_5;
+wire [31:0] t1   = reg_6;
+wire [31:0] t2   = reg_7;
+wire [31:0] s0   = reg_8;
+wire [31:0] s1   = reg_9;
+wire [31:0] a0   = reg_10;
+wire [31:0] a1   = reg_11;
+wire [31:0] a2   = reg_12;
+wire [31:0] a3   = reg_13;
+wire [31:0] a4   = reg_14;
+wire [31:0] a5   = reg_15;
+wire [31:0] a6   = reg_16;
+wire [31:0] a7   = reg_17;
+wire [31:0] s2   = reg_18;
+wire [31:0] s3   = reg_19;
+wire [31:0] s4   = reg_20;
+wire [31:0] s5   = reg_21;
+wire [31:0] s6   = reg_22;
+wire [31:0] s7   = reg_23;
+wire [31:0] s8   = reg_24;
+wire [31:0] s9   = reg_25;
+wire [31:0] s10  = reg_26;
+wire [31:0] s11  = reg_27;
+wire [31:0] t3   = reg_28;
+wire [31:0] t4   = reg_29;
+wire [31:0] t5   = reg_30;
+wire [31:0] t6   = reg_31;
+
+wire [31:0] ft0  = reg_F0;
+wire [31:0] ft1  = reg_F1;
+wire [31:0] ft2  = reg_F2;
+wire [31:0] ft3  = reg_F3;
+wire [31:0] ft4  = reg_F4;
+wire [31:0] ft5  = reg_F5;
+wire [31:0] ft6  = reg_F6;
+wire [31:0] ft7  = reg_F7;
+wire [31:0] fs0  = reg_F8;
+wire [31:0] fs1  = reg_F9;
+wire [31:0] fa0  = reg_F10;
+wire [31:0] fa1  = reg_F11;
+wire [31:0] fa2  = reg_F12;
+wire [31:0] fa3  = reg_F13;
+wire [31:0] fa4  = reg_F14;
+wire [31:0] fa5  = reg_F15;
+wire [31:0] fa6  = reg_F16;
+wire [31:0] fa7  = reg_F17;
+wire [31:0] fs2  = reg_F18;
+wire [31:0] fs3  = reg_F19;
+wire [31:0] fs4  = reg_F20;
+wire [31:0] fs5  = reg_F21;
+wire [31:0] fs6  = reg_F22;
+wire [31:0] fs7  = reg_F23;
+wire [31:0] fs8  = reg_F24;
+wire [31:0] fs9  = reg_F25;
+wire [31:0] fs10 = reg_F26;
+wire [31:0] fs11 = reg_F27;
+wire [31:0] ft8  = reg_F28;
+wire [31:0] ft9  = reg_F29;
+wire [31:0] ft10 = reg_F30;
+wire [31:0] ft11 = reg_F31;
 
 // Synchronus Register Writeback
 always @ (posedge clk_i) begin
@@ -150,6 +184,7 @@ always @ (posedge clk_i) begin
                 reg_29  <= 32'h00000000;
                 reg_30  <= 32'h00000000;
                 reg_31  <= 32'h00000000;
+                reg_F0  <= 32'h00000000;
                 reg_F1  <= 32'h00000000;
                 reg_F2  <= 32'h00000000;
                 reg_F3  <= 32'h00000000;
@@ -214,6 +249,7 @@ always @ (posedge clk_i) begin
                 if (rdId_i[4:0] == 5'd30) reg_30 <= rdData_i;
                 if (rdId_i[4:0] == 5'd31) reg_31 <= rdData_i;
         end else begin
+                if (rdId_i[4:0] == 5'd0)  reg_F0  <= rdData_i;
                 if (rdId_i[4:0] == 5'd1)  reg_F1  <= rdData_i;
                 if (rdId_i[4:0] == 5'd2)  reg_F2  <= rdData_i;
                 if (rdId_i[4:0] == 5'd3)  reg_F3  <= rdData_i;
@@ -254,6 +290,7 @@ reg [31:0] rs2Data;
 reg [31:0] rs3Data;
 always @(*) begin
         case (rs1Id_i[4:0])
+                5'd0:  rs1Data = rs1Id_i[5] ? reg_F0  : 32'b0;
                 5'd1:  rs1Data = rs1Id_i[5] ? reg_F1  : reg_1;
                 5'd2:  rs1Data = rs1Id_i[5] ? reg_F2  : reg_2;
                 5'd3:  rs1Data = rs1Id_i[5] ? reg_F3  : reg_3;
@@ -289,6 +326,7 @@ always @(*) begin
         endcase
 
         case (rs2Id_i[4:0])
+                5'd0:  rs2Data = rs2Id_i[5] ? reg_F0  : 32'b0;
                 5'd1:  rs2Data = rs2Id_i[5] ? reg_F1  : reg_1;
                 5'd2:  rs2Data = rs2Id_i[5] ? reg_F2  : reg_2;
                 5'd3:  rs2Data = rs2Id_i[5] ? reg_F3  : reg_3;
@@ -324,6 +362,7 @@ always @(*) begin
         endcase
 
         case (rs3Id_i[4:0])
+                5'd0:  rs3Data = rs3Id_i[5] ? reg_F0  : 32'b0;
                 5'd1:  rs3Data = rs3Id_i[5] ? reg_F1  : reg_1;
                 5'd2:  rs3Data = rs3Id_i[5] ? reg_F2  : reg_2;
                 5'd3:  rs3Data = rs3Id_i[5] ? reg_F3  : reg_3;

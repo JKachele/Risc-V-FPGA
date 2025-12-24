@@ -84,7 +84,7 @@ always @(*) begin
                 addRs1Exp   = fmulExp;
                 addRs1Class = fmulClass;
 
-                addRs2      = (isFNMSUB || isFMSUB) ? {~rs3_i[31], rs3_i[30:0]} : rs3_i;
+                addRs2      = (isFNMADD || isFMSUB) ? {~rs3_i[31], rs3_i[30:0]} : rs3_i;
                 addRs2Sig   = {rs3Sig, 24'b0};
                 addRs2Exp   = {rs3Exp[9], rs3Exp};
                 addRs2Class = rs3Class;

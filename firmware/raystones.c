@@ -96,6 +96,7 @@ void graphics_set_pixel(int x, int y, float r, float g, float b) {
                 }
                 return;
         } 
+#ifdef graphics_double_lines
         static uint8_t prev_R=0;
         static uint8_t prev_G=0;
         static uint8_t prev_B=0;
@@ -118,6 +119,12 @@ void graphics_set_pixel(int x, int y, float r, float g, float b) {
                 prev_G = G;
                 prev_B = B;
         }
+#else   
+        printf("\033[48;2;%d;%d;%dm ",(int)R,(int)G,(int)B);
+        if(x == graphics_width-1) {
+                printf("\033[48;2;0;0;0m\n");
+        }
+#endif   
 }
 
 
@@ -225,10 +232,6 @@ static inline float vec3_length(vec3 U) {
 
 static inline vec3 vec3_normalize(vec3 U) {
         return vec3_scale(1.0f/vec3_length(U),U);
-}
-
-static inline void printVec3(vec3 V) {
-        printf("(%f, %f, %f) ", V.x, V.y, V.z);
 }
 
 /*************************************************************************/
@@ -420,7 +423,6 @@ vec3 cast_ray(
                                );
                 float def = material.specular_exponent;
                 if(abc > 0.0f && def > 0.0f) {
-                        printf("\n\t%f, %f, %f, %f ", abc, def, lights[i].intensity, powf(abc,def));
                         specular_light_intensity += powf(abc,def)*lights[i].intensity;
                 }
         }
@@ -431,9 +433,7 @@ vec3 cast_ray(
                         result, vec3_scale(specular_light_intensity * material.albedo.y,
                                 make_vec3(1,1,1))
                         );
-        // printVec3(result);
         result = vec3_add(result, vec3_scale(material.albedo.z, reflect_color));
-        // printVec3(result);
         result = vec3_add(result, vec3_scale(material.albedo.w, refract_color));
         return result;
 }
@@ -446,33 +446,30 @@ static inline void render_pixel(
         float dir_x =  (i + 0.5) - graphics_width/2.;
         float dir_y = -(j + 0.5) + graphics_height/2.; // this flips the image.
         float dir_z = -graphics_height/(2.*tan(fov/2.));
-        printf("(%d, %d): ", i, j);
         vec3 C = cast_ray(
                         make_vec3(0,0,0), vec3_normalize(make_vec3(dir_x, dir_y, dir_z)),
                         spheres, nb_spheres, lights, nb_lights, 0
                         );
-        printVec3(C);
-        printf("\n");
         graphics_set_pixel(i,j,C.x,C.y,C.z);
         stats_end_pixel();
 }
 
 void render(Sphere* spheres, int nb_spheres, Light* lights, int nb_lights) {
         stats_begin_frame();
-        // for (int j = 0; j<graphics_height; j+=2) { 
-        //         for (int i = 0; i<graphics_width; i++) {
-        //                 render_pixel(i,j  ,spheres,nb_spheres,lights,nb_lights);
-        //                 render_pixel(i,j+1,spheres,nb_spheres,lights,nb_lights);	  
-        //         }
-        // }
-        render_pixel(6,0,spheres,nb_spheres,lights,nb_lights);
-        render_pixel(6,1,spheres,nb_spheres,lights,nb_lights);	  
-        render_pixel(7,0,spheres,nb_spheres,lights,nb_lights);
-        render_pixel(7,1,spheres,nb_spheres,lights,nb_lights);	  
-        render_pixel(3,3,spheres,nb_spheres,lights,nb_lights);	  
-        render_pixel(4,2,spheres,nb_spheres,lights,nb_lights);	  
-        render_pixel(4,3,spheres,nb_spheres,lights,nb_lights);	  
-        render_pixel(5,2,spheres,nb_spheres,lights,nb_lights);	  
+#ifdef graphics_double_lines  
+        for (int j = 0; j<graphics_height; j+=2) { 
+                for (int i = 0; i<graphics_width; i++) {
+                        render_pixel(i,j  ,spheres,nb_spheres,lights,nb_lights);
+                        render_pixel(i,j+1,spheres,nb_spheres,lights,nb_lights);	  
+                }
+        }
+#else
+        for (int j = 0; j<graphics_height; j++) { 
+                for (int i = 0; i<graphics_width; i++) {
+                        render_pixel(i,j  ,spheres,nb_spheres,lights,nb_lights);
+                }
+        }
+#endif
         stats_end_frame();
 }
 
@@ -509,18 +506,18 @@ void init_scene() {
 int main() {
         init_scene();
 
-        graphics_init();
+        // graphics_init();
         bench_run = 1;
-        graphics_width  = 10;
-        graphics_height = 5;
+        graphics_width  = 40;
+        graphics_height = 20;
         printf("Running without graphic output (for accurate measurement)...\n");
         render(spheres, nb_spheres, lights, nb_lights);
 
-        // bench_run = 0;
-        // graphics_width = 40;
-        // graphics_height = 20;
-        // render(spheres, nb_spheres, lights, nb_lights);
-        graphics_terminate();
+        bench_run = 0;
+        graphics_width = 120;
+        graphics_height = 60;
+        render(spheres, nb_spheres, lights, nb_lights);
+        // graphics_terminate();
 
         return 0;
 }

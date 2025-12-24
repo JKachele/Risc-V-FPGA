@@ -8,7 +8,7 @@ if { $argc < 1 } {
 
 # Read Design Files
 foreach filename $argv {
-        set fullpath "../$filename"
+        set fullpath "$filename"
         if { ![file exists $fullpath] } {
                 puts "ERROR: File '$fullpath' does not exist."
                 exit 2
@@ -16,33 +16,33 @@ foreach filename $argv {
         puts "Reading Verilog file: $fullpath"
         read_verilog $fullpath
 }
-read_xdc        ../src/Extern/ArtyA7.xdc
+read_xdc        src/Extern/ArtyA7.xdc
 
 # Synthesize the design and write synthesis report
 synth_design             -top SOC
-write_checkpoint         -force ./reports/post_synth
-report_timing_summary    -file ./reports/post_synth_timing_summary.rpt
-report_power             -file ./reports/post_synth_power.rpt
-report_clock_interaction -delay_type min_max -file ./reports/post_synth_clock_interaction.rpt
-report_high_fanout_nets  -fanout_greater_than 200 -max_nets 50 -file ./reports/post_synth_high_fanout_nets.rpt
+write_checkpoint         -force tcl/reports/post_synth
+report_timing_summary    -file tcl/reports/post_synth_timing_summary.rpt
+report_power             -file tcl/reports/post_synth_power.rpt
+report_clock_interaction -delay_type min_max -file tcl/reports/post_synth_clock_interaction.rpt
+report_high_fanout_nets  -fanout_greater_than 200 -max_nets 50 -file tcl/reports/post_synth_high_fanout_nets.rpt
 
 # Place the design and write the placement report
 opt_design
 place_design
 phys_opt_design
-write_checkpoint         -force ./reports/post_place
-report_timing_summary    -file ./reports/post_place_timing_summary.rpt
+write_checkpoint         -force tcl/reports/post_place
+report_timing_summary    -file tcl/reports/post_place_timing_summary.rpt
 
 # Route the design and write the routing report
 route_design
-write_checkpoint         -force ./reports/post_route
-report_timing_summary    -file ./reports/post_route_timing_summary.rpt
-report_timing            -sort_by group -max_paths 100 -path_type summary -file ./reports/post_route_timing.rpt
-report_clock_utilization -file ./reports/clock_util.rpt
-report_utilization       -file ./reports/post_route_util.rpt
-report_power             -file ./reports/post_route_power.rpt
-report_drc               -file ./reports/post_imp_drc.rpt
+write_checkpoint         -force tcl/reports/post_route
+report_timing_summary    -file tcl/reports/post_route_timing_summary.rpt
+report_timing            -sort_by group -max_paths 100 -path_type summary -file tcl/reports/post_route_timing.rpt
+report_clock_utilization -file tcl/reports/clock_util.rpt
+report_utilization       -file tcl/reports/post_route_util.rpt
+report_power             -file tcl/reports/post_route_power.rpt
+report_drc               -file tcl/reports/post_imp_drc.rpt
 
 # Write the bitstream file
-write_bitstream -force -bin_file ../bin/SOC.bit
+write_bitstream -force -bin_file bin/SOC.bit
 exit

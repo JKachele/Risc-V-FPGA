@@ -16,7 +16,7 @@ OBJCOPY := $(RVTOOL_PREFIX)-objcopy
 OBJDUMP := $(RVTOOL_PREFIX)-objdump
 CFLAGS  := -march=$(RVARCH) -mabi=$(RVABI) -Wno-builtin-declaration-mismatch
 CFLAGS  += -fno-pic -fno-stack-protector -w -nostdlib
-# CFLAGS  += -O2
+CFLAGS  += -O2
 LDFLAGS := -m elf32lriscv -nostdlib
 LDFLAGS += -L$(RV_LIB_DIR) -lm $(GCC_LIB_DIR)/libgcc.a
 ODFLAGS := -sj .data -dj .text
@@ -36,7 +36,7 @@ BIN_DIR := bin
 BUILD_DIR := build
 
 # Firmware
-SRC := firmware/startPipeline.S firmware/Test.c
+SRC := firmware/startPipeline.S firmware/raystones.c
 SRC += $(wildcard firmware/libs/*.S) $(wildcard firmware/libs/*.c) 
 OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
 LDSCRIPT = firmware/ram.ld
@@ -79,17 +79,17 @@ sim: $(ROM) $(RAM)
 	cd obj_dir; ./V$(TOP)
 
 all: $(BIN_DIR) $(ROM) $(RAM)
-	cd tcl; vivado -mode tcl -source build.tcl
+	vivado -mode batch -source build.tcl -tclargs $(VSRC)
 	cd tcl; vivado -mode tcl -source upload.tcl
 
 $(BIN_DIR):
 	mkdir -p $@
 
 lint: $(BIN_DIR) $(ROM) $(RAM) 
-	cd tcl; vivado -mode tcl -source lint.tcl
+	vivado -mode batch -source lint.tcl -tclargs $(VSRC)
 
 build: $(BIN_DIR) $(ROM) $(RAM) 
-	cd tcl; vivado -mode batch -source build.tcl -tclargs $(VSRC)
+	vivado -mode batch -source build.tcl -tclargs $(VSRC)
 
 upload:
 	cd tcl; vivado -mode tcl -source upload.tcl
