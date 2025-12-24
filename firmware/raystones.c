@@ -11,7 +11,7 @@
 /* Bruno Levy, 2020                                                */
 /* Original tinyraytracer: https://github.com/ssloy/tinyraytracer  */
 
-#include "libs/printf.h"
+#include <stdio.h>
 #include <stdint.h>
 #include <math.h>
 #include <stdlib.h>
@@ -506,7 +506,7 @@ void init_scene() {
 int main() {
         init_scene();
 
-        // graphics_init();
+        graphics_init();
         bench_run = 1;
         graphics_width  = 40;
         graphics_height = 20;
@@ -517,7 +517,7 @@ int main() {
         graphics_width = 120;
         graphics_height = 60;
         render(spheres, nb_spheres, lights, nb_lights);
-        // graphics_terminate();
+        graphics_terminate();
 
         return 0;
 }

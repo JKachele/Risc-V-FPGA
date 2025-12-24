@@ -14,9 +14,8 @@ CC := $(RVTOOL_PREFIX)-gcc
 LD := $(RVTOOL_PREFIX)-ld
 OBJCOPY := $(RVTOOL_PREFIX)-objcopy
 OBJDUMP := $(RVTOOL_PREFIX)-objdump
-CFLAGS  := -march=$(RVARCH) -mabi=$(RVABI) -Wno-builtin-declaration-mismatch
+CFLAGS  := -O2 -march=$(RVARCH) -mabi=$(RVABI) -Wno-builtin-declaration-mismatch
 CFLAGS  += -fno-pic -fno-stack-protector -w -nostdlib
-CFLAGS  += -O2
 LDFLAGS := -m elf32lriscv -nostdlib
 LDFLAGS += -L$(RV_LIB_DIR) -lm $(GCC_LIB_DIR)/libgcc.a
 ODFLAGS := -sj .data -dj .text

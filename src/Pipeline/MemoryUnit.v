@@ -31,6 +31,7 @@ module MemoryUnit (
         input  wire        EM_isLoad_i,
         input  wire        EM_isStore_i,
         input  wire        EM_isCSR_i,
+        input  wire        EM_isAMO_i,
         input  wire [5:0]  EM_rdId_i,
         input  wire [5:0]  EM_rs1Id_i,
         input  wire [5:0]  EM_rs2Id_i,
@@ -56,12 +57,24 @@ wire M_isB = (EM_funct3_i[1:0] == 2'b00);
 wire M_isH = (EM_funct3_i[1:0] == 2'b01);
 
 /*----------------------STORE---------------------*/
-wire [31:0] M_storeData;
-assign M_storeData [7:0]  = EM_rs2_i[7:0];
-assign M_storeData[15:8]  = EM_addr_i[0] ? EM_rs2_i[7:0]  : EM_rs2_i[15:8];
-assign M_storeData[23:16] = EM_addr_i[1] ? EM_rs2_i[7:0]  : EM_rs2_i[23:16];
-assign M_storeData[31:24] = EM_addr_i[0] ? EM_rs2_i[7:0]  :
-		            EM_addr_i[1] ? EM_rs2_i[15:8] : EM_rs2_i[31:24];
+reg [31:0] M_storeData;
+always @(*) begin
+        if (EM_isAMO_i) begin
+                M_storeData = EM_Eresult_i;
+        end
+        // Store byte only
+        else if (EM_addr_i[0]) begin
+                M_storeData = {4{EM_rs2_i[7:0]}};
+        end
+        // Store half for [31:16] or [15:0] or store byte for [23:16]
+        else if (EM_addr_i[1]) begin
+                M_storeData = {2{EM_rs2_i[15:0]}};
+        end
+        // Store word or store byte for [7:0]
+        else begin
+                M_storeData = EM_rs2_i;
+        end
+end
 
 reg [3:0] M_storeMask;
 always @(*) begin
@@ -88,12 +101,12 @@ wire M_isIO  = EM_addr_i[22];
 wire M_isRAM = !M_isIO;
 
 assign IO_memAddr_o  = EM_addr_i;
-assign IO_memWr_o    = EM_isStore_i && M_isIO;
+assign IO_memWr_o    = (EM_isStore_i || EM_isAMO_i) && M_isIO;
 assign IO_memWData_o = EM_rs2_i;
 
 assign DMemWAddr_o = EM_addr_i;
 assign DMemWData_o = M_storeData;
-assign DMemWMask_o = {4{EM_isStore_i & M_isRAM}} & M_storeMask;
+assign DMemWMask_o = {4{(EM_isStore_i | EM_isAMO_i) & M_isRAM}} & M_storeMask;
 
 /*----------------------LOAD----------------------*/
 wire [15:0] M_memHalf = EM_addr_i[1] ? EM_Mdata_i[31:16] : EM_Mdata_i[15:0];
@@ -119,8 +132,8 @@ assign csrRAddr_o = EM_csrId_i;
 assign csrInstStep_o  = ~MW_nop_o;
 
 wire [31:0] M_wbData =
-        EM_isLoad_i ? (M_isIO ? IO_memRData_i : M_Mdata) :
-        EM_isCSR_i  ? csrRData_i : EM_Eresult_i;
+        (EM_isLoad_i | EM_isAMO_i) ? (M_isIO ? IO_memRData_i : M_Mdata) :
+        EM_isCSR_i                 ? csrRData_i : EM_Eresult_i;
 
 always @(posedge clk_i) begin
         MW_PC_o <= EM_PC_i;

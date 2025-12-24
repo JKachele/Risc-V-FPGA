@@ -51,6 +51,7 @@ module ExecuteUnit (
         input  wire        DE_isSYS_i,
         input  wire        DE_isEBREAK_i,
         input  wire        DE_isCSR_i,
+        input  wire        DE_isAMO_i,
         input  wire        DE_isFPU_i,
         input  wire [5:0]  DE_rdId_i,
         input  wire [5:0]  DE_rs1Id_i,
@@ -77,6 +78,7 @@ module ExecuteUnit (
         output reg         EM_isLoad_o,
         output reg         EM_isStore_o,
         output reg         EM_isCSR_o,
+        output reg         EM_isAMO_o,
         output reg  [5:0]  EM_rdId_o,
         output reg  [5:0]  EM_rs1Id_o,
         output reg  [5:0]  EM_rs2Id_o,
@@ -117,9 +119,9 @@ wire [31:0] E_rs3 = EMfwd_rs3 ? EM_Eresult_o :
         EWfwd_rs3 ? MW_wbData_i : rs3Data_i;
 
 /*---------------ADD/SUBTRACT/SHIFT---------------*/
-wire [31:0] E_aluIn1 = E_rs1;
+wire [31:0] E_aluIn1 = DE_isAMO_i ? DMemRData_i : E_rs1;
 wire [31:0] E_aluIn2 =
-        DE_isALUR_i | DE_isBranch_i ? E_rs2 : DE_Iimm_i;
+        DE_isALUR_i | DE_isBranch_i | DE_isAMO_i ? E_rs2 : DE_Iimm_i;
 
 // Add Subtract
 wire E_isMinus = DE_funct7_i[5] & DE_isALUR_i;
@@ -215,6 +217,24 @@ wire [31:0] E_aluOutM =
         (  E_divsel == 3'b110 ?  EE_dividend       : 32'b0) | // REM
         (  E_divsel == 3'b111 ? -EE_dividend       : 32'b0) ; // REM Negative
 
+/*-----------Atomic Memory Instructions-----------*/
+// Memory access address
+wire [31:0] E_addr =
+        DE_isAMO_i   ? E_rs1             :
+        DE_isStore_i ? E_rs1 + DE_Simm_i : E_rs1 + DE_Iimm_i;
+assign DMemRAddr_o = E_addr;
+
+wire [31:0] E_amoOut = 
+        (DE_funct7_i[6:2] == 5'h00 ?                      E_aluPlus : 32'b0) | // amoadd.w
+        (DE_funct7_i[6:2] == 5'h01 ?                      E_aluIn2  : 32'b0) | // amoswap.w
+        (DE_funct7_i[6:2] == 5'h04 ?           E_aluIn1 ^ E_aluIn2  : 32'b0) | // amoxor.w
+        (DE_funct7_i[6:2] == 5'h08 ?           E_aluIn1 | E_aluIn2  : 32'b0) | // amoor.w
+        (DE_funct7_i[6:2] == 5'h0C ?           E_aluIn1 & E_aluIn2  : 32'b0) | // amoand.w
+        (DE_funct7_i[6:2] == 5'h10 ? ( E_LT  ? E_aluIn1 : E_aluIn2) : 32'b0) | // amomin.w
+        (DE_funct7_i[6:2] == 5'h14 ? (!E_LT  ? E_aluIn1 : E_aluIn2) : 32'b0) | // amomax.w
+        (DE_funct7_i[6:2] == 5'h18 ? ( E_LTU ? E_aluIn1 : E_aluIn2) : 32'b0) | // amominu.w
+        (DE_funct7_i[6:2] == 5'h1C ? (!E_LTU ? E_aluIn1 : E_aluIn2) : 32'b0) ; // amomaxu.w
+
 /*----------------------FPU-----------------------*/
 wire E_fpuBusy;
 wire [2:0] E_fpuRound = (&DE_funct3_i) ? csrFRM_i : DE_funct3_i;
@@ -233,6 +253,7 @@ FPU fpu(
 );
 
 wire [31:0] E_aluOut = DE_isRV32M_i ? E_aluOutM : 
+                       DE_isAMO_i   ? E_amoOut  :
                        DE_isFPU_i   ? E_fpuOut  : E_aluOutBase;
 
 assign aluBusy_o = EE_divBusy | (DE_isDIV_i & !EE_divFinished) | E_fpuBusy;
@@ -261,17 +282,12 @@ wire [31:0] E_PCcorrection =
         /* JALR */                                 E_JALRaddr;
 
 wire [31:0] E_result = 
-        (DE_isJAL_i | DE_isJALR_i) ? DE_PC_i + 4              :
-        DE_isLUI_i                      ? DE_Uimm_i         :
-        DE_isAUIPC_i                    ? DE_PC_i + DE_Uimm_i :
-        /* ALU OP */                           E_aluOut ;
+        (DE_isJAL_i | DE_isJALR_i) ? DE_PC_i + 4         :
+        DE_isLUI_i                 ? DE_Uimm_i           :
+        DE_isAUIPC_i               ? DE_PC_i + DE_Uimm_i :
+        /* ALU or AMO OP */          E_aluOut            ;
 
-/*------------------------------------------------*/
-// Memory access address
-wire [31:0] E_addr =
-        DE_isStore_i ? E_rs1 + DE_Simm_i : E_rs1 + DE_Iimm_i;
-assign DMemRAddr_o = E_addr;
-
+/*---------------------Output---------------------*/
 always @(posedge clk_i) begin
         if (!E_stall_i) begin
                 EM_PC_o <= DE_PC_i;
@@ -281,6 +297,7 @@ always @(posedge clk_i) begin
                 EM_isLoad_o <= DE_isLoad_i;
                 EM_isStore_o <= DE_isStore_i;
                 EM_isCSR_o <= DE_isCSR_i;
+                EM_isAMO_o <= DE_isAMO_i;
                 EM_rdId_o <= DE_rdId_i;
                 EM_rs1Id_o <= DE_rs1Id_i;
                 EM_rs2Id_o <= DE_rs2Id_i;
@@ -301,6 +318,7 @@ always @(posedge clk_i) begin
                 EM_isLoad_o    <= 1'b0;
                 EM_isStore_o   <= 1'b0;
                 EM_isCSR_o     <= 1'b0;
+                EM_isAMO_o     <= 1'b0;
                 EM_correctPC_o <= 1'b0;
                 EM_wbEnable_o  <= 1'b0;
         end

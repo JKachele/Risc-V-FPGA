@@ -44,6 +44,7 @@ module DecodeUnit #(
         output reg         DE_isSYS_o,
         output reg         DE_isEBREAK_o,
         output reg         DE_isCSR_o,
+        output reg         DE_isAMO_o,
         output reg         DE_isFPU_o,
         output reg  [5:0]  DE_rdId_o,
         output reg  [5:0]  DE_rs1Id_o,
@@ -106,6 +107,7 @@ wire D_isALUI     = (FD_instr_i[6:2] == 5'b00100);
 wire D_isALUR     = (FD_instr_i[6:2] == 5'b01100);
 wire D_isFENCE    = (FD_instr_i[6:2] == 5'b00011);
 wire D_isSYS      = (FD_instr_i[6:2] == 5'b11100);
+wire D_isAMO      = (FD_instr_i[6:2] == 5'b01011);
 wire D_isFPU      = (FD_instr_i[6:5] == 2'b10);
 
 // Instruction Functions
@@ -238,6 +240,7 @@ always @(posedge clk_i) begin
                 DE_isSYS_o    <= D_isSYS;
                 DE_isEBREAK_o <= D_isEBREAK;
                 DE_isCSR_o    <= D_isCSR;
+                DE_isAMO_o    <= D_isAMO;
                 DE_isFPU_o    <= D_isFPU;
 
                 DE_rdId_o  <= D_rdId;
@@ -282,6 +285,8 @@ always @(posedge clk_i) begin
                 DE_isSYS_o    <= 1'b0;
                 DE_isEBREAK_o <= 1'b0;
                 DE_isCSR_o    <= 1'b0;
+                DE_isAMO_o    <= 1'b0;
+                DE_isFPU_o    <= 1'b0;
                 DE_isRV32M_o  <= 1'b0;
                 DE_isMUL_o    <= 1'b0;
                 DE_isDIV_o    <= 1'b0;

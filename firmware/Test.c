@@ -6,7 +6,7 @@
  *License-------GNU GPL-3.0
  ************************************************/
 
-#include "libs/printf.h"
+#include <stdio.h>
 #include <math.h>
 
 static const float f1 = 41.3766783323;

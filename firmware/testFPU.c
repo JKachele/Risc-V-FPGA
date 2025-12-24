@@ -6,7 +6,7 @@
  *License-------GNU GPL-3.0
  ************************************************/
 
-#include "libs/printf.h"
+#include <stdio.h>
 
 // float fdiv(float f1, float f2) {
 //         float ans;

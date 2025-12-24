@@ -6,7 +6,7 @@
 #define TIME
 #define USE_MYSTDLIB
 
-#include "libs/printf.h"
+#include <stdio.h>
 #include <string.h>
 
 #include "dhrystones/dhry_1.c"

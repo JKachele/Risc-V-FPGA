@@ -9,22 +9,6 @@
 module Processor(
         input  wire clk_i,
         input  wire reset_i,
-        // Registers
-        input  wire [31:0] rs1Data_i,
-        input  wire [31:0] rs2Data_i,
-        input  wire [31:0] rs3Data_i,
-        output wire [5:0]  rdId_o,
-        output wire [31:0] rdData_o,
-        output wire [5:0]  rs1Id_o,
-        output wire [5:0]  rs2Id_o,
-        output wire [5:0]  rs3Id_o,
-        // Control and Status Registers
-        output wire [11:0] csrWAddr_o,
-        output wire [31:0] csrWData_o,
-        output wire [11:0] csrRAddr_o,
-        input  wire [31:0] csrRData_i,
-        output wire        csrInstStep_o,
-        input  wire [2:0]  csrFRM_i,
         // Memory
         output wire [31:0] IMemAddr_o,
         input  wire [31:0] IMemData_i,
@@ -38,6 +22,50 @@ module Processor(
         input  wire [31:0] IO_memRData_i,
         output wire [31:0] IO_memWData_o,
         output wire        IO_memWr_o
+);
+
+/******************************************************************************
+ ----------------------------------Registers-----------------------------------
+ ******************************************************************************/
+wire [31:0] rs1Data;
+wire [31:0] rs2Data;
+wire [31:0] rs3Data;
+wire [5:0]  rdId;
+wire [31:0] rdData;
+wire [5:0]  rs1Id;
+wire [5:0]  rs2Id;
+wire [5:0]  rs3Id;
+
+// CSR
+wire [11:0] csrWAddr;
+wire [31:0] csrWData;
+wire [11:0] csrRAddr;
+wire [31:0] csrRData;
+wire        csrInstStep;
+wire [2:0]  csrFRM;
+
+RegisterFile registers(
+        .clk_i(clk_i),
+        .reset_i(reset_i),
+        .rdId_i(rdId),
+        .rdData_i(rdData),
+        .rs1Id_i(rs1Id),
+        .rs2Id_i(rs2Id),
+        .rs3Id_i(rs3Id),
+        .rs1Data_o(rs1Data),
+        .rs2Data_o(rs2Data),
+        .rs3Data_o(rs3Data)
+);
+
+CSR_RegFile csr(
+        .clk_i(clk_i),
+        .reset_i(reset_i),
+        .csrWAddr_i(csrWAddr),
+        .csrWData_i(csrWData),
+        .csrRAddr_i(csrRAddr),
+        .csrRData_o(csrRData),
+        .csrInstStep_i(csrInstStep),
+        .csrFRM_o(csrFRM)
 );
 
 /******************************************************************************
@@ -110,6 +138,7 @@ wire        DE_isFENCE;
 wire        DE_isSYS;
 wire        DE_isEBREAK;
 wire        DE_isCSR;
+wire        DE_isAMO;
 wire        DE_isFPU;
 
 wire [5:0]  DE_rdId;
@@ -175,6 +204,7 @@ DecodeUnit #(
        .DE_isSYS_o(DE_isSYS),
        .DE_isEBREAK_o(DE_isEBREAK),
        .DE_isCSR_o(DE_isCSR),
+       .DE_isAMO_o(DE_isAMO),
        .DE_isFPU_o(DE_isFPU),
        .DE_rdId_o(DE_rdId),
        .DE_rs1Id_o(DE_rs1Id),
@@ -207,6 +237,7 @@ wire        EM_nop;
 wire        EM_isLoad;
 wire        EM_isStore;
 wire        EM_isCSR;
+wire        EM_isAMO;
 wire [5:0]  EM_rdId;
 wire [5:0]  EM_rs1Id;
 wire [5:0]  EM_rs2Id;
@@ -235,13 +266,13 @@ ExecuteUnit execute(
         .E_takeBranch_o(E_takeBranch),
         .E_correctPC_o(E_correctPC),
         .aluBusy_o(aluBusy),
-        .rs1Id_o(rs1Id_o),
-        .rs2Id_o(rs2Id_o),
-        .rs3Id_o(rs3Id_o),
-        .rs1Data_i(rs1Data_i),
-        .rs2Data_i(rs2Data_i),
-        .rs3Data_i(rs3Data_i),
-        .csrFRM_i(csrFRM_i),
+        .rs1Id_o(rs1Id),
+        .rs2Id_o(rs2Id),
+        .rs3Id_o(rs3Id),
+        .rs1Data_i(rs1Data),
+        .rs2Data_i(rs2Data),
+        .rs3Data_i(rs3Data),
+        .csrFRM_i(csrFRM),
         .DMemRAddr_o(DMemRAddr_o),
         .DMemRData_i(DMemRData_i),
         .MW_wbEnable_i(MW_wbEnable),
@@ -263,6 +294,7 @@ ExecuteUnit execute(
         .DE_isSYS_i(DE_isSYS),
         .DE_isEBREAK_i(DE_isEBREAK),
         .DE_isCSR_i(DE_isCSR),
+        .DE_isAMO_i(DE_isAMO),
         .DE_isFPU_i(DE_isFPU),
         .DE_rdId_i(DE_rdId),
         .DE_rs1Id_i(DE_rs1Id),
@@ -288,6 +320,7 @@ ExecuteUnit execute(
         .EM_isLoad_o(EM_isLoad),
         .EM_isStore_o(EM_isStore),
         .EM_isCSR_o(EM_isCSR),
+        .EM_isAMO_o(EM_isAMO),
         .EM_rdId_o(EM_rdId),
         .EM_rs1Id_o(EM_rs1Id),
         .EM_rs2Id_o(EM_rs2Id),
@@ -323,17 +356,18 @@ MemoryUnit memory(
         .IO_memRData_i(IO_memRData_i),
         .IO_memWData_o(IO_memWData_o),
         .IO_memWr_o(IO_memWr_o),
-        .csrWAddr_o(csrWAddr_o),
-        .csrWData_o(csrWData_o),
-        .csrRAddr_o(csrRAddr_o),
-        .csrRData_i(csrRData_i),
-        .csrInstStep_o(csrInstStep_o),
+        .csrWAddr_o(csrWAddr),
+        .csrWData_o(csrWData),
+        .csrRAddr_o(csrRAddr),
+        .csrRData_i(csrRData),
+        .csrInstStep_o(csrInstStep),
         .EM_PC_i(EM_PC),
         .EM_instr_i(EM_instr),
         .EM_nop_i(EM_nop),
         .EM_isLoad_i(EM_isLoad),
         .EM_isStore_i(EM_isStore),
         .EM_isCSR_i(EM_isCSR),
+        .EM_isAMO_i(EM_isAMO),
         .EM_rdId_i(EM_rdId),
         .EM_rs1Id_i(EM_rs1Id),
         .EM_rs2Id_i(EM_rs2Id),
@@ -360,8 +394,8 @@ MemoryUnit memory(
 WriteBackUnit writeback(
         .clk_i(clk_i),
         .reset_i(reset_i),
-        .rdId_o(rdId_o),
-        .rdData_o(rdData_o),
+        .rdId_o(rdId),
+        .rdData_o(rdData),
         .MW_PC_i(MW_PC),
         .MW_instr_i(MW_instr),
         .MW_nop_i(MW_nop),

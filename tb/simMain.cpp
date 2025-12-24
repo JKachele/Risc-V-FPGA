@@ -14,8 +14,8 @@
 #define DE_predictRA            SOC__DOT__CPU__DOT__DE_predictRA
 #define E_JALRaddr              SOC__DOT__CPU__DOT__execute__DOT__E_JALRaddr
 #define MW_instr                SOC__DOT__CPU__DOT__MW_instr
-#define CYCLE                   SOC__DOT__csr__DOT__CSR_cycle;
-#define INSTRET                 SOC__DOT__csr__DOT__CSR_instret;
+#define CYCLE                   SOC__DOT__CPU__DOT__csr__DOT__CSR_cycle;
+#define INSTRET                 SOC__DOT__CPU__DOT__csr__DOT__CSR_instret;
 
 class SOC_TB : public TESTB<VSOC> {
         // Statistics counters
@@ -79,6 +79,9 @@ public:
                         printf("\n");
                 }
                 prevLEDS = m_core->LEDS;
+                // if (rootp->SOC__DOT__CPU__DOT__DE_isAMO == 1) {
+                //         printf("AMO!!\n");
+                // }
                 updateStats();
         }
 
