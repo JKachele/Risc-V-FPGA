@@ -38,6 +38,7 @@ module MemoryUnit (
         input  wire [11:0] EM_csrId_i,
         input  wire [31:0] EM_rs2_i,
         input  wire [2:0]  EM_funct3_i,
+        input  wire [6:0]  EM_funct7_i,
         input  wire [31:0] EM_Eresult_i,
         input  wire [31:0] EM_addr_i,
         input  wire [31:0] EM_Mdata_i,
@@ -53,10 +54,26 @@ module MemoryUnit (
         output reg         MW_wbEnable_o
 );
 
+/*---------------------LR/SC----------------------*/
+reg [31:0] MM_reservedAddress;
+reg        MM_reservedChanged;
+
+wire M_isLR = EM_isAMO_i & (EM_funct7_i[6:2] == 5'b00010);
+wire M_isSC = EM_isAMO_i & (EM_funct7_i[6:2] == 5'b00011);
+
+wire M_addressReserved = (EM_addr_i == MM_reservedAddress);
+
+always @(posedge clk_i) begin
+        if (EM_isAMO_i & M_isLR) begin
+                MM_reservedAddress <= EM_addr_i;
+                MM_reservedChanged <= 1'b0;
+        end
+end
+
+/*----------------------STORE---------------------*/
 wire M_isB = (EM_funct3_i[1:0] == 2'b00);
 wire M_isH = (EM_funct3_i[1:0] == 2'b01);
 
-/*----------------------STORE---------------------*/
 reg [31:0] M_storeData;
 always @(*) begin
         if (EM_isAMO_i) begin

@@ -244,6 +244,7 @@ wire [5:0]  EM_rs2Id;
 wire [11:0] EM_csrId;
 wire [31:0] EM_rs2;
 wire [2:0]  EM_funct3;
+wire [6:0]  EM_funct7;
 
 wire [31:0] EM_Eresult;
 wire [31:0] EM_addr;
@@ -327,6 +328,7 @@ ExecuteUnit execute(
         .EM_csrId_o(EM_csrId),
         .EM_rs2_o(EM_rs2),
         .EM_funct3_o(EM_funct3),
+        .EM_funct7_o(EM_funct7),
         .EM_Eresult_o(EM_Eresult),
         .EM_addr_o(EM_addr),
         .EM_Mdata_o(EM_Mdata),
@@ -374,6 +376,7 @@ MemoryUnit memory(
         .EM_csrId_i(EM_csrId),
         .EM_rs2_i(EM_rs2),
         .EM_funct3_i(EM_funct3),
+        .EM_funct7_i(EM_funct7),
         .EM_Eresult_i(EM_Eresult),
         .EM_addr_i(EM_addr),
         .EM_Mdata_i(EM_Mdata),
