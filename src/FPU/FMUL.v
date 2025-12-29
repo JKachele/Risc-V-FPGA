@@ -22,7 +22,11 @@ module FMUL (
         output wire        [47:0] sig_o,
         output wire        [5:0]  class_o
 );
-`include "src/FPU/FClassFlags.vh"
+`ifdef BENCH
+        `include "src/FPU/FClassFlags.vh"
+`else
+        `include "../src/FPU/FClassFlags.vh"
+`endif
 
 reg [31:0] out;
 reg [5:0]  outClass;

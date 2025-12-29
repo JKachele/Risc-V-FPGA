@@ -18,7 +18,11 @@ module FClass #(
         output wire        [5:0]  class_o,
         output wire        [9:0]  fullClass_o
 );
-`include "src/FPU/FClassFlags.vh"
+`ifdef BENCH
+        `include "src/FPU/FClassFlags.vh"
+`else
+        `include "../src/FPU/FClassFlags.vh"
+`endif
 
 wire regExpZ   = (reg_i[FLen-2:SigLen] == 0);
 wire regExp255 = (reg_i[FLen-2:SigLen] == 255);

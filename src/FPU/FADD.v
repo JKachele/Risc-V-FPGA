@@ -19,7 +19,11 @@ module FADD (
 
         output wire        [31:0] faddOut_o
 );
-`include "src/FPU/FClassFlags.vh"
+`ifdef BENCH
+        `include "src/FPU/FClassFlags.vh"
+`else
+        `include "../src/FPU/FClassFlags.vh"
+`endif
 
 localparam FMAX = 32'h7F7FFFFF;
 localparam FMIN = 32'hFF7FFFFF;

@@ -16,7 +16,11 @@ module FCVT (
 
         output wire        [31:0] fcvtOut_o
 );
-`include "src/FPU/FClassFlags.vh"
+`ifdef BENCH
+        `include "src/FPU/FClassFlags.vh"
+`else
+        `include "../src/FPU/FClassFlags.vh"
+`endif
 
 assign fcvtOut_o = instr_i[1] ? ftoiOut : {outSign, outExp[7:0], outSig[22:0]};
 
