@@ -18,7 +18,11 @@ module FCMP (
 
         output wire [2:0]  fcmp_o // {FLT, FLE, FEQ}
 );
-`include "src/FPU/FClassFlags.vh"
+`ifdef BENCH
+        `include "src/FPU/FClassFlags.vh"
+`else
+        `include "../src/FPU/FClassFlags.vh"
+`endif
 
 reg [2:0] out;
 assign fcmp_o = out;

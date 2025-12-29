@@ -44,7 +44,7 @@ ROM := $(BIN_DIR)/ROM.hex
 RAM := $(BIN_DIR)/RAM.hex
 FIRMWARE := $(BIN_DIR)/firmware.elf
 
-.PHONY: all hex sim lint build dirs clean 
+.PHONY: hex sim lint build dirs clean 
 
 hex: $(ROM) $(RAM)
 
@@ -77,24 +77,20 @@ sim: $(ROM) $(RAM)
 	cd obj_dir; make -f V$(TOP).mk -s
 	cd obj_dir; ./V$(TOP)
 
-all: $(BIN_DIR) $(ROM) $(RAM)
-	vivado -mode batch -source build.tcl -tclargs $(VSRC)
-	cd tcl; vivado -mode tcl -source upload.tcl
-
 $(BIN_DIR):
 	mkdir -p $@
 
 lint: $(BIN_DIR) $(ROM) $(RAM) 
-	vivado -mode batch -source lint.tcl -tclargs $(VSRC)
+	cd tcl; vivado -mode batch -nolog -nojournal -source lint.tcl -tclargs $(VSRC)
 
 build: $(BIN_DIR) $(ROM) $(RAM) 
-	vivado -mode batch -source build.tcl -tclargs $(VSRC)
+	cd tcl; vivado -mode batch -nolog -nojournal -source build.tcl -tclargs $(VSRC)
 
 upload:
-	cd tcl; vivado -mode tcl -source upload.tcl
+	cd tcl; vivado -mode tcl -nolog -nojournal -source upload.tcl
 
 store:
-	cd tcl; vivado -mode tcl -source store.tcl
+	cd tcl; vivado -mode tcl -nolog -nojournal -source store.tcl
 
 clean:
 	rm -rf ./obj_dir

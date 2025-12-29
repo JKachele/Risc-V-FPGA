@@ -24,7 +24,11 @@ module FDIV (
         output reg                ready_o,
         output wire        [31:0] fdivOut_o
 );
-`include "src/FPU/FClassFlags.vh"
+`ifdef BENCH
+        `include "src/FPU/FClassFlags.vh"
+`else
+        `include "../src/FPU/FClassFlags.vh"
+`endif
 
 reg [31:0] divOut;
 assign fdivOut_o = divOut;

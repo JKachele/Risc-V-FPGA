@@ -71,7 +71,9 @@ IO io(
         .txd_o(TXD)
 );
 
-Clockworks CW(
+Clockworks #(
+        .SLOW(2)        // Slow clock by 2^SLOW
+)CW(
         .CLK(CLK),
         .RESET(RESET),
         .clk(clk),

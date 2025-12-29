@@ -37,7 +37,7 @@ wire uartBusy;
 assign IO_memRData_o = IO_wordAddr[IO_UART_CTRL_bit] ? {22'b0, uartBusy, 9'b0}
                                                     : 32'b0;
 // 115200 baud, 8-bit, no parity, 1 stop bit
-localparam UART_SETUP = {1'b0, 2'b00, 1'b0, 3'b000, 24'h000364};
+localparam UART_SETUP = {1'b0, 2'b00, 1'b0, 3'b000, 24'h0000D9};
 
 `ifndef BENCH
         txuart TXUART (

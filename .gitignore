@@ -40,10 +40,8 @@ bin/
 obj_dir/
 
 # Vivado Logs
-tcl/reports
-tcl/*.txt
-*.jou
-*.log
+tcl/*
+!tcl/*.tcl
 
 # Debug files
 *.dSYM/
