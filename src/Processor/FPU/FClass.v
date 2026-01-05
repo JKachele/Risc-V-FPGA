@@ -19,9 +19,9 @@ module FClass #(
         output wire        [9:0]  fullClass_o
 );
 `ifdef BENCH
-        `include "src/FPU/FClassFlags.vh"
+        `include "src/Processor/FPU/FClassFlags.vh"
 `else
-        `include "../src/FPU/FClassFlags.vh"
+        `include "../src/Processor/FPU/FClassFlags.vh"
 `endif
 
 wire regExpZ   = (reg_i[FLen-2:SigLen] == 0);

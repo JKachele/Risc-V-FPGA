@@ -20,9 +20,9 @@ module FADD (
         output wire        [31:0] faddOut_o
 );
 `ifdef BENCH
-        `include "src/FPU/FClassFlags.vh"
+        `include "src/Processor/FPU/FClassFlags.vh"
 `else
-        `include "../src/FPU/FClassFlags.vh"
+        `include "../src/Processor/FPU/FClassFlags.vh"
 `endif
 
 localparam FMAX = 32'h7F7FFFFF;

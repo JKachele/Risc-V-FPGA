@@ -25,9 +25,9 @@ module FDIV (
         output wire        [31:0] fdivOut_o
 );
 `ifdef BENCH
-        `include "src/FPU/FClassFlags.vh"
+        `include "src/Processor/FPU/FClassFlags.vh"
 `else
-        `include "../src/FPU/FClassFlags.vh"
+        `include "../src/Processor/FPU/FClassFlags.vh"
 `endif
 
 reg [31:0] divOut;

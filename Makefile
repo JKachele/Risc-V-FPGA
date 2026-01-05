@@ -21,7 +21,7 @@ LDFLAGS += -L$(RV_LIB_DIR) -lm $(GCC_LIB_DIR)/libgcc.a
 ODFLAGS := -sj .data -dj .text
 
 # Verilog
-VSRC := $(wildcard src/*.v) $(wildcard src/*/*.v)
+VSRC := $(wildcard src/*.v) $(wildcard src/*/*.v) $(wildcard src/*/*/*.v)
 TOP  := SOC
 XDC  := src/Extern/NexusA7.xdc
 
