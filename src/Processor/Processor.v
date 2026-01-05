@@ -102,6 +102,7 @@ ControlUnit control(
  ******************************************************************************/
 wire [31:0] FD_PC;
 wire [31:0] FD_instr;
+wire        FD_isRV32C;
 wire        FD_nop;
 FetchUnit fetch(
         .clk_i(clk_i),
@@ -116,6 +117,7 @@ FetchUnit fetch(
         .IMemData_i(IMemData_i),
         .FD_PC_o(FD_PC),
         .FD_instr_o(FD_instr),
+        .FD_isRV32C_o(FD_isRV32C),
         .FD_nop_o(FD_nop)
 );
 /******************************************************************************
@@ -123,6 +125,7 @@ FetchUnit fetch(
  ******************************************************************************/
 wire [31:0] DE_PC;
 wire [31:0] DE_instr;
+wire        DE_isRV32C;
 wire        DE_nop;
 
 wire        DE_isLUI;
@@ -187,9 +190,11 @@ DecodeUnit #(
        .dataHazard_o(dataHazard),
        .FD_PC_i(FD_PC),
        .FD_instr_i(FD_instr),
+       .FD_isRV32C_i(FD_isRV32C),
        .FD_nop_i(FD_nop),
        .DE_PC_o(DE_PC),
        .DE_instr_o(DE_instr),
+       .DE_isRV32C_o(DE_isRV32C),
        .DE_nop_o(DE_nop),
        .DE_isLUI_o(DE_isLUI),
        .DE_isAUIPC_o(DE_isAUIPC),
@@ -281,6 +286,7 @@ ExecuteUnit execute(
         .MW_wbData_i(MW_wbData),
         .DE_PC_i(DE_PC),
         .DE_instr_i(DE_instr),
+        .DE_isRV32C_i(DE_isRV32C),
         .DE_nop_i(DE_nop),
         .DE_isLUI_i(DE_isLUI),
         .DE_isAUIPC_i(DE_isAUIPC),

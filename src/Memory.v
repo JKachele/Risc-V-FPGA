@@ -18,7 +18,7 @@ module Memory (
         input  wire [3:0]  DMemWMask_i
 );
 
-reg [31:0] INSTMEM [0:16383];
+reg [15:0] INSTMEM [0:32767];
 reg [31:0] DATAMEM [0:16383];
 
 initial begin
@@ -26,9 +26,13 @@ initial begin
         $readmemh("../bin/RAM.hex",DATAMEM);
 end
 
-assign IMemData_o  = INSTMEM[IMemAddr_i[31:2]];
-assign DMemRData_o = DATAMEM[DMemRAddr_i[31:2]];
+// Instruction ROM: Can be alligned to 16 bits or 32 bits
+wire [15:0] IMemdata_1 = INSTMEM[IMemAddr_i[31:1]];
+wire [15:0] IMemdata_2 = INSTMEM[IMemAddr_i[31:1] + 1];
+assign IMemData_o = {IMemdata_2, IMemdata_1};
 
+// Data RAM: All alligned to 32 bits
+assign DMemRData_o = DATAMEM[DMemRAddr_i[31:2]];
 wire [29:0] wordAddr = DMemWAddr_i[31:2];
 always @(posedge clk_i) begin
         if (DMemWMask_i[0]) DATAMEM[wordAddr][ 7:0 ] <= DMemWData_i[ 7:0 ];

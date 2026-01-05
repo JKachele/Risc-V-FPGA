@@ -5,7 +5,6 @@
  *Author--------Justin Kachele
  *Created-------Tuesday Dec 02, 2025 15:52:48 UTC
  ************************************************/
-/* verilator lint_off WIDTH */
 
 module DecodeUnit #(
         parameter BP_ADDR_BITS = 12,
@@ -26,10 +25,12 @@ module DecodeUnit #(
         // Fetch Unit Interface
         input  wire [31:0] FD_PC_i,
         input  wire [31:0] FD_instr_i,
+        input  wire        FD_isRV32C_i,
         input  wire        FD_nop_i,
         // Execute Unit Interface
         output reg  [31:0] DE_PC_o,
         output reg  [31:0] DE_instr_o,
+        output reg         DE_isRV32C_o,
         output reg         DE_nop_o,
         output reg         DE_isLUI_o,
         output reg         DE_isAUIPC_o,
@@ -93,49 +94,53 @@ localparam NOP = 32'b0000000_00000_00000_000_00000_0110011;
  * SYSTEM  // special
  */
 
+/*------------Instruction Decompression-----------*/
+wire [31:0] D_instr;
+Decompressor decomp(FD_instr_i, D_instr);
+
 /*--------------INSTRUCTION DECODING--------------*/
 // 11 RV32I OpCodes
 // bits [1:0] are always 00 for all opcodes
-wire D_isLUI      = (FD_instr_i[6:2] == 5'b01101);
-wire D_isAUIPC    = (FD_instr_i[6:2] == 5'b00101);
-wire D_isJAL      = (FD_instr_i[6:2] == 5'b11011);
-wire D_isJALR     = (FD_instr_i[6:2] == 5'b11001);
-wire D_isBranch   = (FD_instr_i[6:2] == 5'b11000);
-wire D_isLoad     = (FD_instr_i[6:3] == 4'b0000);  // instr[2]: FLW
-wire D_isStore    = (FD_instr_i[6:3] == 4'b0100);  // instr[2]: FSW
-wire D_isALUI     = (FD_instr_i[6:2] == 5'b00100);
-wire D_isALUR     = (FD_instr_i[6:2] == 5'b01100);
-wire D_isFENCE    = (FD_instr_i[6:2] == 5'b00011);
-wire D_isSYS      = (FD_instr_i[6:2] == 5'b11100);
-wire D_isAMO      = (FD_instr_i[6:2] == 5'b01011);
-wire D_isFPU      = (FD_instr_i[6:5] == 2'b10);
+wire D_isLUI      = (D_instr[6:2] == 5'b01101);
+wire D_isAUIPC    = (D_instr[6:2] == 5'b00101);
+wire D_isJAL      = (D_instr[6:2] == 5'b11011);
+wire D_isJALR     = (D_instr[6:2] == 5'b11001);
+wire D_isBranch   = (D_instr[6:2] == 5'b11000);
+wire D_isLoad     = (D_instr[6:3] == 4'b0000);  // instr[2]: FLW
+wire D_isStore    = (D_instr[6:3] == 4'b0100);  // instr[2]: FSW
+wire D_isALUI     = (D_instr[6:2] == 5'b00100);
+wire D_isALUR     = (D_instr[6:2] == 5'b01100);
+wire D_isFENCE    = (D_instr[6:2] == 5'b00011);
+wire D_isSYS      = (D_instr[6:2] == 5'b11100);
+wire D_isAMO      = (D_instr[6:2] == 5'b01011);
+wire D_isFPU      = (D_instr[6:5] == 2'b10);
 
 // Instruction Functions
-wire [2:0] D_funct3 = FD_instr_i[14:12];
-wire [6:0] D_funct7 = FD_instr_i[31:25];
+wire [2:0] D_funct3 = D_instr[14:12];
+wire [6:0] D_funct7 = D_instr[31:25];
 
 // Source and dest registers
-wire [4:0] D_raw_rdId  = FD_instr_i[11:7];
-wire [4:0] D_raw_rs1Id = FD_instr_i[19:15];
-wire [4:0] D_raw_rs2Id = FD_instr_i[24:20];
-wire [4:0] D_raw_rs3Id = FD_instr_i[31:27]; // For FMA ops
+wire [4:0] D_raw_rdId  = D_instr[11:7];
+wire [4:0] D_raw_rs1Id = D_instr[19:15];
+wire [4:0] D_raw_rs2Id = D_instr[24:20];
+wire [4:0] D_raw_rs3Id = D_instr[31:27]; // For FMA ops
 
 // Immediate Values
 wire [31:0] D_Iimm =
-        {{21{FD_instr_i[31]}}, FD_instr_i[30:20]};
+        {{21{D_instr[31]}}, D_instr[30:20]};
 wire [31:0] D_Simm =
-        {{21{FD_instr_i[31]}}, FD_instr_i[30:25],FD_instr_i[11:7]};
+        {{21{D_instr[31]}}, D_instr[30:25],D_instr[11:7]};
 wire [31:0] D_Bimm =
-        {{20{FD_instr_i[31]}}, FD_instr_i[7],FD_instr_i[30:25],FD_instr_i[11:8],1'b0};
+        {{20{D_instr[31]}}, D_instr[7],D_instr[30:25],D_instr[11:8],1'b0};
 wire [31:0] D_Uimm =
-        {FD_instr_i[31], FD_instr_i[30:12], {12{1'b0}}};
+        {D_instr[31], D_instr[30:12], {12{1'b0}}};
 wire [31:0] D_Jimm =
-        {{12{FD_instr_i[31]}}, FD_instr_i[19:12],FD_instr_i[20],FD_instr_i[30:21],1'b0};
+        {{12{D_instr[31]}}, D_instr[19:12],D_instr[20],D_instr[30:21],1'b0};
 
-wire D_isEBREAK = D_isSYS & (D_funct3 == 3'b000) & FD_instr_i[20] & ~FD_instr_i[22];
+wire D_isEBREAK = D_isSYS & (D_funct3 == 3'b000) & D_instr[20] & ~D_instr[22];
 
 wire D_isCSR = D_isSYS & ((D_funct3 != 3'b000) & (D_funct3 != 3'b100));
-wire [11:0] D_csrId = FD_instr_i[31:20];
+wire [11:0] D_csrId = D_instr[31:20];
 
 wire D_isLR  = D_isAMO & (D_funct7[6:2] == 5'b00010);
 
@@ -146,25 +151,25 @@ wire D_readsRs1 = !(D_isJAL || D_isLUI || D_isAUIPC);
 
 wire D_readsRs2 = (D_isStoreOrAMO || D_isBranch || D_isALUR || D_isFPU);
 
-wire D_isRV32M = D_isALUR  & FD_instr_i[25];
-wire D_isMUL   = D_isRV32M & !FD_instr_i[14];
-wire D_isDIV   = D_isRV32M &  FD_instr_i[14];
+wire D_isRV32M = D_isALUR  & D_instr[25];
+wire D_isMUL   = D_isRV32M & !D_instr[14];
+wire D_isDIV   = D_isRV32M &  D_instr[14];
 
 // rd is a FP reg if op is FLW, FMA, R-Type FPU, FCVT.S.W(U), or FMV.W.X
-wire D_rdIsFP = (FD_instr_i[6:2] == 5'b00001)  || // FLW
-        (FD_instr_i[6:4] == 3'b100)            || // FMA F(N)MADD / F(N)MSUB
-        (D_isFPU && ((FD_instr_i[31] == 1'b0)  || // R-Type FPU Instr
-        (FD_instr_i[31:28] == 4'b1101)         || // FCVT.S.W(U)
-        (FD_instr_i[31:28] == 4'b1111)));         // FMV.W.X
+wire D_rdIsFP = (D_instr[6:2] == 5'b00001)  || // FLW
+        (D_instr[6:4] == 3'b100)            || // FMA F(N)MADD / F(N)MSUB
+        (D_isFPU && ((D_instr[31] == 1'b0)  || // R-Type FPU Instr
+        (D_instr[31:28] == 4'b1101)         || // FCVT.S.W(U)
+        (D_instr[31:28] == 4'b1111)));         // FMV.W.X
 
 // rs1 is a FP reg if op is FPU except for FCVT.S.W(U) and FMV.W.X
 wire D_rs1IsFP = D_isFPU &&
-        !((FD_instr_i[4:2]   == 3'b100) && (
-          (FD_instr_i[31:28] == 4'b1101) ||     // FCVT.S.W(U)
-          (FD_instr_i[31:28] == 4'b1111)));      // FMV.W.X
+        !((D_instr[4:2]   == 3'b100) && (
+          (D_instr[31:28] == 4'b1101) ||     // FCVT.S.W(U)
+          (D_instr[31:28] == 4'b1111)));      // FMV.W.X
 
 // rs2 is a FP reg if op is FPU or FSW
-wire D_rs2IsFP = D_isFPU || (D_isStore && FD_instr_i[2]);
+wire D_rs2IsFP = D_isFPU || (D_isStore && D_instr[2]);
 
 // Floating Point Registers are encoded with id[5] == 1
 wire [5:0] D_rdId =  {D_rdIsFP , D_raw_rdId };
@@ -192,8 +197,8 @@ always @(posedge clk_i) begin
         end
 end
 
-wire [BP_ADDR_BITS-1:0] D_bhtIndex =
-        FD_PC_i[BP_ADDR_BITS+1:2] ^ (branchHist << (BP_ADDR_BITS - BH_BITS));
+localparam BH_SHAMT = BP_ADDR_BITS - BH_BITS;
+wire [BP_ADDR_BITS-1:0] D_bhtIndex = FD_PC_i[BP_ADDR_BITS:1] ^ {branchHist, {BH_SHAMT{1'b0}}};
 
 wire D_predictBranch = BHT[D_bhtIndex][1];
 
@@ -215,7 +220,7 @@ always @(posedge clk_i) begin
                         RAS_3 <= RAS_2;
                         RAS_2 <= RAS_1;
                         RAS_1 <= RAS_0;
-                        RAS_0 <= FD_PC_i + 4;
+                        RAS_0 <= FD_PC_i + (FD_isRV32C_i ? 2 : 4);
                 end
                 if(D_isJALR && D_rdId==0 && (D_rs1Id==1 || D_rs1Id==5)) begin
                         RAS_0 <= RAS_1;
@@ -229,7 +234,8 @@ end
 always @(posedge clk_i) begin
         if (!D_stall_i) begin
                 DE_PC_o <= FD_PC_i;
-                DE_instr_o <= (E_flush_i | FD_nop_i) ? NOP : FD_instr_i;
+                DE_instr_o <= (E_flush_i | FD_nop_i) ? NOP : D_instr;
+                DE_isRV32C_o <= FD_isRV32C_i;
                 DE_nop_o <= 1'b0;
 
                 DE_isLUI_o    <= D_isLUI;
@@ -255,7 +261,7 @@ always @(posedge clk_i) begin
                 DE_csrId_o <= D_csrId;
 
                 DE_funct3_o <= D_funct3;
-                DE_funct3_is_o <= 8'b00000001 << FD_instr_i[14:12];
+                DE_funct3_is_o <= 8'b00000001 << D_instr[14:12];
                 DE_funct7_o <= D_funct7;
 
                 DE_Iimm_o <= D_Iimm;
@@ -307,5 +313,4 @@ assign dataHazard_o = !FD_nop_i &&
         (D_isLoadOrAMO && (DE_isStore_o || DE_isAMO_o));
 
 endmodule
-/* verilator lint_on WIDTH */
 

@@ -5,7 +5,7 @@ MEMORY {
 
 SECTIONS {
         .text : {
-                . = ALIGN(4);
+                . = ALIGN(2);
                 *startPipeline*.o (.text)
                 *(.text*)
         } > PROGROM

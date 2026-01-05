@@ -37,6 +37,7 @@ module ExecuteUnit (
         // Decode Unit Interface
         input  wire [31:0] DE_PC_i,
         input  wire [31:0] DE_instr_i,
+        input  wire        DE_isRV32C_i,
         input  wire        DE_nop_i,
         input  wire        DE_isLUI_i,
         input  wire        DE_isAUIPC_i,
@@ -278,12 +279,14 @@ wire E_correctPC = (
 );
 assign E_correctPC_o = E_correctPC;
 
+wire [31:0] E_nextPC = DE_PC_i + (DE_isRV32C_i ? 2 : 4);
+
 wire [31:0] E_PCcorrection = 
-        DE_isBranch_i ? DE_PC_i + (DE_predictBranch_i ? 4 : DE_Bimm_i) :
-        /* JALR */                                 E_JALRaddr;
+        DE_isBranch_i ? (DE_predictBranch_i ? E_nextPC : DE_PC_i + DE_Bimm_i) :
+        /* JALR */      E_JALRaddr;
 
 wire [31:0] E_result = 
-        (DE_isJAL_i | DE_isJALR_i) ? DE_PC_i + 4         :
+        (DE_isJAL_i | DE_isJALR_i) ? E_nextPC            :
         DE_isLUI_i                 ? DE_Uimm_i           :
         DE_isAUIPC_i               ? DE_PC_i + DE_Uimm_i :
         /* ALU or AMO OP */          E_aluOut            ;

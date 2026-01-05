@@ -3,7 +3,7 @@
 # @file        : Makefile
 # @created     : Friday Oct 17, 2025 14:39:28 UTC
 ######################################################################
-RVARCH = rv32imaf
+RVARCH = rv32imafc
 RVABI = ilp32f
 RVTOOL_PREFIX := riscv64-unknown-elf
 RVTOOL_DIR := /opt/riscv
@@ -50,7 +50,7 @@ hex: $(ROM) $(RAM)
 
 $(ROM): $(FIRMWARE)
 	$(OBJCOPY) $< -R .data -O binary $@.bin
-	hexdump -ve '"%08x\n"' $@.bin > $@
+	hexdump -ve '1/2 "%04x\n"' $@.bin > $@
 	rm $@.bin
 
 $(RAM): $(FIRMWARE)
