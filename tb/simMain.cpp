@@ -28,9 +28,9 @@ class SOC_TB : public TESTB<VSOC> {
         IData nbStore = 0;
         IData nbLoadHazard = 0;
         IData nbRV32M = 0;
-        IData nbMUL = 0;
-        IData nbDIV = 0;
+        IData nbMULDIV = 0;
         IData nbFPU = 0;
+        IData nbAMO = 0;
 
         void updateStats(void) {
                 if (m_core->RESET == 0 && rootp->D_stall == 0) {
@@ -55,12 +55,12 @@ class SOC_TB : public TESTB<VSOC> {
                         nbLoad++;
                 if (riscV_isStore(rootp->MW_instr))
                         nbStore++;
-                if (riscV_isMul(rootp->MW_instr))
-                        nbMUL++;
-                if (riscV_isDiv(rootp->MW_instr))
-                        nbDIV++;
+                if (riscV_isMul(rootp->MW_instr) || riscV_isDiv(rootp->MW_instr))
+                        nbMULDIV++;
                 if (riscV_isFPU(rootp->MW_instr))
                         nbFPU++;
+                if (riscV_isAMO(rootp->MW_instr))
+                        nbAMO++;
                 if (rootp->dataHazard == 1)
                         nbLoadHazard++;
         }
@@ -107,15 +107,16 @@ public:
                 printf("Cycles     = %ld\n", cycle);
                 printf("Instret    = %ld\n", instret);
                 printf("CPI        = %3.3f\n",(cycle*1.0)/(instret*1.0));
+
                 printf("Instr. mix = (");
-                printf("Branch:%3.3f\%% | ",    nbBranch*100.0/instret);
-                printf("JAL:%3.3f\%% | ",       nbJAL*100.0/instret);
-                printf("JALR:%3.3f\%% | ",      nbJALR*100.0/instret);
-                printf("Load:%3.3f\%% | ",      nbLoad*100.0/instret);
-                printf("Store:%3.3f\%% | ",     nbStore*100.0/instret);
-                printf("MUL(HSU):%3.3f\%% | ", nbMUL*100.0/instret);
-                printf("DIV/REM:%3.3f\%% | ",   nbDIV*100.0/instret);
-                printf("FPU:%3.3f\%%",         nbFPU*100.0/instret);
+                printf("Branch:%3.3f\%% | ",            nbBranch*100.0/instret);
+                printf("JAL:%3.3f\%% | ",               nbJAL*100.0/instret);
+                printf("JALR:%3.3f\%% | ",              nbJALR*100.0/instret);
+                printf("Load:%3.3f\%% | ",              nbLoad*100.0/instret);
+                printf("Store:%3.3f\%% | ",             nbStore*100.0/instret);
+                printf("MUL/DIV/REM:%3.3f\%% | ",       nbMULDIV*100.0/instret);
+                printf("FPU:%3.3f\%% | ",               nbFPU*100.0/instret);
+                printf("AMO:%3.3f\%%",                  nbAMO*100.0/instret);
                 printf(")\n");
         }
 

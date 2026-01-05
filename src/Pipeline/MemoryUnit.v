@@ -60,13 +60,22 @@ reg        MM_reservedChanged;
 
 wire M_isLR = EM_isAMO_i & (EM_funct7_i[6:2] == 5'b00010);
 wire M_isSC = EM_isAMO_i & (EM_funct7_i[6:2] == 5'b00011);
+wire M_isAMO = EM_isAMO_i & ~(M_isLR | M_isSC);
 
 wire M_addressReserved = (EM_addr_i == MM_reservedAddress);
 
+// Store Conditional succeeds if the address is reserved and hasent been modified
+wire M_scWriteable = M_addressReserved & ~MM_reservedChanged;
+
 always @(posedge clk_i) begin
+        // Set reserved address and flag
         if (EM_isAMO_i & M_isLR) begin
                 MM_reservedAddress <= EM_addr_i;
                 MM_reservedChanged <= 1'b0;
+        end
+        // If any store to reserved address, set flag to changed
+        else if ((EM_isStore_i || EM_isAMO_i) && M_addressReserved) begin
+                MM_reservedChanged <= 1'b1;
         end
 end
 
@@ -76,7 +85,7 @@ wire M_isH = (EM_funct3_i[1:0] == 2'b01);
 
 reg [31:0] M_storeData;
 always @(*) begin
-        if (EM_isAMO_i) begin
+        if (M_isAMO) begin
                 M_storeData = EM_Eresult_i;
         end
         // Store byte only
@@ -114,16 +123,30 @@ always @(*) begin
         end
 end
 
+reg M_storeEnable;
+always @(*) begin
+        if (EM_isStore_i || M_isAMO) begin
+                M_storeEnable = 1'b1;
+        end else if (M_isSC) begin
+                if (M_scWriteable)
+                        M_storeEnable = 1'b1;
+                else
+                        M_storeEnable = 1'b0;
+        end else begin
+                M_storeEnable = 1'b0;
+        end
+end
+
 wire M_isIO  = EM_addr_i[22];
 wire M_isRAM = !M_isIO;
 
 assign IO_memAddr_o  = EM_addr_i;
-assign IO_memWr_o    = (EM_isStore_i || EM_isAMO_i) && M_isIO;
+assign IO_memWr_o    = (M_storeEnable) && M_isIO;
 assign IO_memWData_o = EM_rs2_i;
 
 assign DMemWAddr_o = EM_addr_i;
 assign DMemWData_o = M_storeData;
-assign DMemWMask_o = {4{(EM_isStore_i | EM_isAMO_i) & M_isRAM}} & M_storeMask;
+assign DMemWMask_o = {4{(M_storeEnable) & M_isRAM}} & M_storeMask;
 
 /*----------------------LOAD----------------------*/
 wire [15:0] M_memHalf = EM_addr_i[1] ? EM_Mdata_i[31:16] : EM_Mdata_i[15:0];
@@ -149,6 +172,7 @@ assign csrRAddr_o = EM_csrId_i;
 assign csrInstStep_o  = ~MW_nop_o;
 
 wire [31:0] M_wbData =
+        M_isSC                     ? {31'b0, M_scWriteable} :
         (EM_isLoad_i | EM_isAMO_i) ? (M_isIO ? IO_memRData_i : M_Mdata) :
         EM_isCSR_i                 ? csrRData_i : EM_Eresult_i;
 

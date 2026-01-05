@@ -137,8 +137,10 @@ wire D_isEBREAK = D_isSYS & (D_funct3 == 3'b000) & FD_instr_i[20] & ~FD_instr_i[
 wire D_isCSR = D_isSYS & ((D_funct3 != 3'b000) & (D_funct3 != 3'b100));
 wire [11:0] D_csrId = FD_instr_i[31:20];
 
-wire D_isLoadOrAMO  = D_isLoad  || D_isAMO;
-wire D_isStoreOrAMO = D_isStore || D_isAMO;
+wire D_isLR  = D_isAMO & (D_funct7[6:2] == 5'b00010);
+
+wire D_isLoadOrAMO  = D_isLoad  | D_isAMO;
+wire D_isStoreOrAMO = D_isStore | (D_isAMO & ~D_isLR);
 
 wire D_readsRs1 = !(D_isJAL || D_isLUI || D_isAUIPC);
 

@@ -90,3 +90,8 @@ bool riscV_isDiv(u32 instruction) {
 bool riscV_isFPU(u32 instruction) {
         return (instruction & 0b1100000) == 0b1000000;
 }
+
+bool riscV_isAMO(u32 instruction) {
+        u32 opcode = opCode(instruction);
+        return opcode == 0b0101111;
+}
