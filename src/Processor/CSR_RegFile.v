@@ -28,6 +28,9 @@ reg [63:0] CSR_instret;     // 0xC02 / 0xC82 ([31:0] / [63:32])
 // Floating Point Extension
 reg [31:0] CSR_fcsr = 0;    // 0x001 - 0x003 (fflags, frm, fcsr)
 
+// Machine Mode CSRs
+reg [31:0] CSR_mstatus = 0;
+
 // Register IDs
 `define CYCLE_ID     12'hC00
 `define CYCLEH_ID    12'hC80
@@ -40,6 +43,8 @@ reg [31:0] CSR_fcsr = 0;    // 0x001 - 0x003 (fflags, frm, fcsr)
 `define FRM_MASK     32'h000000E0
 `define FCSR_ID      12'h003
 `define FCSR_MASK    32'h000000FF
+
+`define MSTATUS_ID      12'h300
 
 // CSR Read
 reg [31:0] rData;
@@ -54,32 +59,38 @@ always @(*) begin
                 `FFLAGS_ID:   rData = {27'b0, csrWData_i[4:0]};
                 `FRM_ID:      rData = {29'b0, csrWData_i[7:5]};
                 `FCSR_ID:     rData = {24'b0, csrWData_i[7:0]};
+
+                `MSTATUS_ID:  rData = CSR_mstatus;
                 default:      rData = 32'b0;
         endcase
 end
 assign csrRData_o = rData;
 
 // CSR Write
-always @(*) begin
+always @(posedge clk_i) begin
         case (csrWAddr_i)
-                `FFLAGS_ID: CSR_fcsr = csrWData_i & `FFLAGS_MASK;
-                `FRM_ID:    CSR_fcsr = csrWData_i & `FRM_MASK;
-                `FCSR_ID:   CSR_fcsr = csrWData_i & `FCSR_MASK;
+                `FFLAGS_ID: CSR_fcsr <= csrWData_i & `FFLAGS_MASK;
+                `FRM_ID:    CSR_fcsr <= csrWData_i & `FRM_MASK;
+                `FCSR_ID:   CSR_fcsr <= csrWData_i & `FCSR_MASK;
+
+                `MSTATUS_ID: CSR_mstatus <= csrWData_i;
                 default:;
         endcase
 end
 
 // CSR Update
 always @(posedge clk_i) begin
-        if (reset_i) begin
-                CSR_cycle   <= 64'b0;
-                CSR_instret <= 64'b0;
-        end else begin
-                CSR_cycle   <= CSR_cycle + 1'b1;
-                if (csrInstStep_i)
-                        CSR_instret <= CSR_instret + 1'b1;
-        end
+        CSR_cycle   <= CSR_cycle + 1'b1;
+        if (csrInstStep_i)
+                CSR_instret <= CSR_instret + 1'b1;
 end
+
+// On reset set all CSRs to zero
+// always @(posedge reset_i) begin
+//         CSR_cycle <= 64'b0;
+//         CSR_instret <= 64'b0;
+//         CSR_fcsr <= 32'b0;
+// end
 
 endmodule
 

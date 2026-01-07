@@ -111,8 +111,8 @@ FetchUnit fetch(
         .D_flush_i(D_flush),
         .D_predictPC_i(D_predictPC),
         .D_PCprediction_i(D_PCprediction),
-        .EM_correctPC_i(EM_correctPC),
-        .EM_PCcorrection_i(EM_PCcorrection),
+        .EM_correctPC_i(EF_correctPC),
+        .EM_PCcorrection_i(EF_PCcorrection),
         .IMemAddr_o(IMemAddr_o),
         .IMemData_i(IMemData_i),
         .FD_PC_o(FD_PC),
@@ -254,12 +254,13 @@ wire [6:0]  EM_funct7;
 wire [31:0] EM_Eresult;
 wire [31:0] EM_addr;
 wire [31:0] EM_Mdata;
-wire        EM_correctPC;
-wire [31:0] EM_PCcorrection;
+wire [31:0] EM_CSRdata;
 wire        EM_wbEnable;
 
 wire        E_correctPC;
 wire        E_takeBranch;
+wire        EF_correctPC;
+wire [31:0] EF_PCcorrection;
 wire        aluBusy;
 
 ExecuteUnit execute(
@@ -271,6 +272,8 @@ ExecuteUnit execute(
         .HALT_o(HALT),
         .E_takeBranch_o(E_takeBranch),
         .E_correctPC_o(E_correctPC),
+        .EF_correctPC_o(EF_correctPC),
+        .EF_PCcorrection_o(EF_PCcorrection),
         .aluBusy_o(aluBusy),
         .rs1Id_o(rs1Id),
         .rs2Id_o(rs2Id),
@@ -278,6 +281,8 @@ ExecuteUnit execute(
         .rs1Data_i(rs1Data),
         .rs2Data_i(rs2Data),
         .rs3Data_i(rs3Data),
+        .csrRAddr_o(csrRAddr),
+        .csrRData_i(csrRData),
         .csrFRM_i(csrFRM),
         .DMemRAddr_o(DMemRAddr_o),
         .DMemRData_i(DMemRData_i),
@@ -338,8 +343,7 @@ ExecuteUnit execute(
         .EM_Eresult_o(EM_Eresult),
         .EM_addr_o(EM_addr),
         .EM_Mdata_o(EM_Mdata),
-        .EM_correctPC_o(EM_correctPC),
-        .EM_PCcorrection_o(EM_PCcorrection),
+        .EM_CSRdata_o(EM_CSRdata),
         .EM_wbEnable_o(EM_wbEnable)
 );
 
@@ -366,8 +370,8 @@ MemoryUnit memory(
         .IO_memWr_o(IO_memWr_o),
         .csrWAddr_o(csrWAddr),
         .csrWData_o(csrWData),
-        .csrRAddr_o(csrRAddr),
-        .csrRData_i(csrRData),
+        // .csrRAddr_o(csrRAddr),
+        // .csrRData_i(csrRData),
         .csrInstStep_o(csrInstStep),
         .EM_PC_i(EM_PC),
         .EM_instr_i(EM_instr),
@@ -386,8 +390,7 @@ MemoryUnit memory(
         .EM_Eresult_i(EM_Eresult),
         .EM_addr_i(EM_addr),
         .EM_Mdata_i(EM_Mdata),
-        .EM_correctPC_i(EM_correctPC),
-        .EM_PCcorrection_i(EM_PCcorrection),
+        .EM_CSRdata_i(EM_CSRdata),
         .EM_wbEnable_i(EM_wbEnable),
         .MW_PC_o(MW_PC),
         .MW_instr_o(MW_instr),

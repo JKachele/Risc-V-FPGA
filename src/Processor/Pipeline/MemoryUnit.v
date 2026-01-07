@@ -21,8 +21,8 @@ module MemoryUnit (
         // CSR Interface
         output wire [11:0] csrWAddr_o,
         output wire [31:0] csrWData_o,
-        output wire [11:0] csrRAddr_o,
-        input  wire [31:0] csrRData_i,
+        // output wire [11:0] csrRAddr_o,
+        // input  wire [31:0] csrRData_i,
         output wire        csrInstStep_o,
         // Execute Unit Interface
         input  wire [31:0] EM_PC_i,
@@ -42,8 +42,7 @@ module MemoryUnit (
         input  wire [31:0] EM_Eresult_i,
         input  wire [31:0] EM_addr_i,
         input  wire [31:0] EM_Mdata_i,
-        input  wire        EM_correctPC_i,
-        input  wire [31:0] EM_PCcorrection_i,
+        input  wire [31:0] EM_CSRdata_i,
         input  wire        EM_wbEnable_i,
         // Writeback Unit Interface
         output reg  [31:0] MW_PC_o,
@@ -167,14 +166,18 @@ always @(*) begin
 end
 
 
-/*------------------------------------------------*/
-assign csrRAddr_o = EM_csrId_i;
+/*-----------------------CSR----------------------*/
+assign csrWAddr_o = EM_isCSR_i ? EM_csrId_i : 12'bZ;
+assign csrWData_o = EM_isCSR_i ? EM_Eresult_i : 32'bZ;
+
+// Step up instruction counter if not a NOP
 assign csrInstStep_o  = ~MW_nop_o;
 
+/*------------------------------------------------*/
 wire [31:0] M_wbData =
         M_isSC                     ? {31'b0, M_scWriteable} :
         (EM_isLoad_i | EM_isAMO_i) ? (M_isIO ? IO_memRData_i : M_Mdata) :
-        EM_isCSR_i                 ? csrRData_i : EM_Eresult_i;
+        EM_isCSR_i                 ? EM_CSRdata_i : EM_Eresult_i;
 
 always @(posedge clk_i) begin
         MW_PC_o <= EM_PC_i;
