@@ -30,6 +30,7 @@ module ExecuteUnit (
         // CSR Interface
         output wire [11:0] csrRAddr_o,
         input  wire [31:0] csrRData_i,
+        output wire [4:0]  csrFFlagsSet_o,
         input  wire [2:0]  csrFRM_i,
         // Memory Interface
         output wire [31:0] DMemRAddr_o,
@@ -270,6 +271,7 @@ FPU fpu(
         .rs2_i(E_rs2),
         .rs3_i(E_rs3),
         .rm_i(E_fpuRound),
+        .fflags_o(csrFFlagsSet_o),
         .busy_o(E_fpuBusy),
         .fpuOut_o(E_fpuOut)
 );

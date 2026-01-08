@@ -22,6 +22,22 @@ module DecodeUnit #(
         output wire        D_predictPC_o,
         output wire [31:0] D_PCprediction_o,
         output wire        dataHazard_o,
+        // CSR Interface
+        input  wire [63:0] csrMStatus_i,
+        input  wire [63:0] csrMedeleg_i,
+        input  wire [31:0] csrMtvec_i,
+        input  wire [31:0] csrMepc_i,
+        input  wire [31:0] csrStvec_i,
+        input  wire [31:0] csrSepc_i,
+        output wire [6:0]  csrMStatusSet_o, // {MPP[1:0], MPIE, MIE, SPP, SPIE, SIE}
+        output wire [31:0] csrMepcSet_o,
+        output wire [31:0] csrMCauseSet_o,
+        output wire [31:0] csrSepcSet_o,
+        output wire [31:0] csrSCauseSet_o,
+        output wire        csrTrapSetEn_o,
+        input  wire [1:0]  privilege_i,
+        output wire [1:0]  privilegeSet_o,
+        output wire        privilegeSetEn_o,
         // Fetch Unit Interface
         input  wire [31:0] FD_PC_i,
         input  wire [31:0] FD_instr_i,
@@ -137,9 +153,15 @@ wire [31:0] D_Uimm =
 wire [31:0] D_Jimm =
         {{12{D_instr[31]}}, D_instr[19:12],D_instr[20],D_instr[30:21],1'b0};
 
-wire D_isEBREAK = D_isSYS & (D_funct3 == 3'b000) & D_instr[20] & ~D_instr[22];
+// Privileged Instructions
+wire D_isPrv    = D_isSYS & (D_funct3 == 3'b000);
+wire D_isECALL  = D_isPrv & (D_instr[22:20] == 3'b000) & ~D_instr[25];
+wire D_isEBREAK = D_isPrv & (D_instr[22:20] == 3'b001) & ~D_instr[25];
+wire D_isMRET   = D_isPrv &  D_instr[21] & (D_instr[30:28] == 3'b011) & ~D_instr[25];
+wire D_isSRET   = D_isPrv &  D_instr[21] & (D_instr[30:28] == 3'b001) & ~D_instr[25];
+wire D_isWFI    = D_isPrv & (D_instr[22:20] == 3'b101) & ~D_instr[25];
 
-wire D_isCSR = D_isSYS & ((D_funct3 != 3'b000) & (D_funct3 != 3'b100));
+wire D_isCSR = D_isSYS & (D_funct3[1:0] != 2'b00);
 wire [11:0] D_csrId = D_instr[31:20];
 
 wire D_isLR  = D_isAMO & (D_funct7[6:2] == 5'b00010);
@@ -208,12 +230,6 @@ reg [31:0] RAS_1;
 reg [31:0] RAS_2;
 reg [31:0] RAS_3;
 
-assign D_predictPC_o = !FD_nop_i &&
-        (D_isJAL || D_isJALR || (D_isBranch && D_predictBranch));
-
-assign D_PCprediction_o = D_isJALR ? RAS_0 :
-        (FD_PC_i + (D_isJAL ? D_Jimm : D_Bimm));
-
 always @(posedge clk_i) begin
         if (!D_stall_i && !FD_nop_i && !D_flush_i) begin
                 if ((D_isJAL || D_isJALR) && D_rdId == 1) begin
@@ -230,13 +246,66 @@ always @(posedge clk_i) begin
         end
 end
 
+/*------------------Trap Handlers-----------------*/
+localparam US = 2'b00, SU = 2'b01, MA = 2'b11;
+
+wire D_isTrap = D_isECALL;
+
+wire [31:0] D_MRetJumpAddr = csrMepc_i;
+wire [31:0] D_SRetJumpAddr = csrSepc_i;
+reg  [31:0] D_ECallJumpAddr;
+reg  [31:0] D_trapJumpAddr;
+
+// Set PC, CSRs, and privilege level for traps
+wire [1:0] D_trapPrivilege =
+        (privilege_i == US)? (csrMedeleg_i[8] ? SU : MA) :
+        (privilege_i == SU)? (csrMedeleg_i[9] ? SU : MA) : MA;
+
+reg [1:0] D_privilegeSet;
+always @(*) begin
+        if (D_isTrap) begin
+                if (D_trapPrivilege == SU) begin
+                        D_trapJumpAddr = csrStvec_i;    // Set jump address to S-Trap
+                        D_privilegeSet = SU;          // Set privilege to Supervisor
+                end else begin // M-Trap
+                        D_trapJumpAddr = csrMtvec_i;    // Set jump address to M-Trap
+                        D_privilegeSet = MA;          // Set privilege to Machine
+                end
+        end else if (D_isMRET) begin
+                D_trapJumpAddr = csrMepc_i;             // Set jump address to MEPC
+                D_privilegeSet = csrMStatus_i[12:11]; // Set privilege to previous
+        end else begin // SRET
+                D_trapJumpAddr = csrSepc_i;             // Set jump address to SEPC
+                D_privilegeSet = {1'b0, csrMStatus_i[8]}; // Set privilege to previous
+        end
+end
+assign privilegeSet_o = D_privilegeSet;
+assign privilegeSetEn_o   = D_isTrap || D_isSRET || D_isMRET;
+
+always @(posedge clk_i) begin
+end
+
+/*------------Branch Prediction Result------------*/
+assign D_predictPC_o = !FD_nop_i &&
+        (D_isJAL || D_isJALR || D_isECALL || D_isMRET || D_isSRET ||
+        (D_isBranch && D_predictBranch));
+
+assign D_PCprediction_o =
+        D_isJALR  ? RAS_0           :
+        D_isECALL ? D_ECallJumpAddr :
+        D_isMRET  ? D_MRetJumpAddr  :
+        D_isSRET  ? D_SRetJumpAddr  :
+        (FD_PC_i + (D_isJAL ? D_Jimm : D_Bimm));
+
+
 /*------------------------------------------------*/
+wire D_isNOP = E_flush_i | FD_nop_i | D_isWFI;
 always @(posedge clk_i) begin
         if (!D_stall_i) begin
                 DE_PC_o <= FD_PC_i;
-                DE_instr_o <= (E_flush_i | FD_nop_i) ? NOP : D_instr;
+                DE_instr_o <= D_isNOP ? NOP : D_instr;
                 DE_isRV32C_o <= FD_isRV32C_i;
-                DE_nop_o <= 1'b0;
+                DE_nop_o <= D_isNOP;
 
                 DE_isLUI_o    <= D_isLUI;
                 DE_isAUIPC_o  <= D_isAUIPC;

@@ -39,10 +39,30 @@ wire [5:0]  rs3Id;
 // CSR
 wire [11:0] csrWAddr;
 wire [31:0] csrWData;
+wire        csrWEnable;
 wire [11:0] csrRAddr;
 wire [31:0] csrRData;
 wire        csrInstStep;
+wire [4:0]  csrFFlagsSet;
 wire [2:0]  csrFRM;
+wire [63:0] csrMStatus;
+wire [63:0] csrMedeleg;
+wire [31:0] csrMideleg;
+wire [31:0] csrMtvec;
+wire [31:0] csrMepc;
+wire [31:0] csrMCause;
+wire [31:0] csrStvec;
+wire [31:0] csrSepc;
+wire [31:0] csrSCause;
+wire [6:0]  csrMStatusSet; // {MPP[1:0], MPIE, MIE, SPP, SPIE, SIE}
+wire [31:0] csrMepcSet;
+wire [31:0] csrMCauseSet;
+wire [31:0] csrSepcSet;
+wire [31:0] csrSCauseSet;
+wire        csrTrapSetEn;
+wire [1:0]  privilege;
+wire [1:0]  privilegeSet;
+wire        privilegeSetEn;
 
 RegisterFile registers(
         .clk_i(clk_i),
@@ -61,11 +81,31 @@ CSR_RegFile csr(
         .clk_i(clk_i),
         .reset_i(reset_i),
         .csrWAddr_i(csrWAddr),
+        .csrWEnable_i(csrWEnable),
         .csrWData_i(csrWData),
         .csrRAddr_i(csrRAddr),
         .csrRData_o(csrRData),
         .csrInstStep_i(csrInstStep),
-        .csrFRM_o(csrFRM)
+        .csrFFlagsSet_i(csrFFlagsSet),
+        .csrFRM_o(csrFRM),
+        .csrMStatus_o(csrMStatus),
+        .csrMedeleg_o(csrMedeleg),
+        .csrMideleg_o(csrMideleg),
+        .csrMtvec_o(csrMtvec),
+        .csrMepc_o(csrMepc),
+        .csrMCause_o(csrMCause),
+        .csrStvec_o(csrStvec),
+        .csrSepc_o(csrSepc),
+        .csrSCause_o(csrSCause),
+        .csrMStatusSet_i(csrMStatusSet),
+        .csrMepcSet_i(csrMepcSet),
+        .csrMCauseSet_i(csrMCauseSet),
+        .csrSepcSet_i(csrSepcSet),
+        .csrSCauseSet_i(csrSCauseSet),
+        .csrTrapSetEn_i(csrTrapSetEn),
+        .privilege_o(privilege),
+        .privilegeSet_i(privilegeSet),
+        .privilegeSetEn_i(privilegeSetEn)
 );
 
 /******************************************************************************
@@ -178,58 +218,73 @@ DecodeUnit #(
         .BHT_SIZE(BHT_SIZE),
         .BH_BITS(BH_BITS)
 )decode(
-       .clk_i(clk_i),
-       .reset_i(reset_i),
-       .D_stall_i(D_stall),
-       .D_flush_i(D_flush),
-       .E_flush_i(E_flush),
-       .E_stall_i(E_stall),
-       .E_takeBranch_i(E_takeBranch),
-       .D_predictPC_o(D_predictPC),
-       .D_PCprediction_o(D_PCprediction),
-       .dataHazard_o(dataHazard),
-       .FD_PC_i(FD_PC),
-       .FD_instr_i(FD_instr),
-       .FD_isRV32C_i(FD_isRV32C),
-       .FD_nop_i(FD_nop),
-       .DE_PC_o(DE_PC),
-       .DE_instr_o(DE_instr),
-       .DE_isRV32C_o(DE_isRV32C),
-       .DE_nop_o(DE_nop),
-       .DE_isLUI_o(DE_isLUI),
-       .DE_isAUIPC_o(DE_isAUIPC),
-       .DE_isJAL_o(DE_isJAL),
-       .DE_isJALR_o(DE_isJALR),
-       .DE_isBranch_o(DE_isBranch),
-       .DE_isLoad_o(DE_isLoad),
-       .DE_isStore_o(DE_isStore),
-       .DE_isALUI_o(DE_isALUI),
-       .DE_isALUR_o(DE_isALUR),
-       .DE_isFENCE_o(DE_isFENCE),
-       .DE_isSYS_o(DE_isSYS),
-       .DE_isEBREAK_o(DE_isEBREAK),
-       .DE_isCSR_o(DE_isCSR),
-       .DE_isAMO_o(DE_isAMO),
-       .DE_isFPU_o(DE_isFPU),
-       .DE_rdId_o(DE_rdId),
-       .DE_rs1Id_o(DE_rs1Id),
-       .DE_rs2Id_o(DE_rs2Id),
-       .DE_rs3Id_o(DE_rs3Id),
-       .DE_csrId_o(DE_csrId),
-       .DE_funct3_o(DE_funct3),
-       .DE_funct3_is_o(DE_funct3_is),
-       .DE_funct7_o(DE_funct7),
-       .DE_Iimm_o(DE_Iimm),
-       .DE_Simm_o(DE_Simm),
-       .DE_Bimm_o(DE_Bimm),
-       .DE_Uimm_o(DE_Uimm),
-       .DE_isRV32M_o(DE_isRV32M),
-       .DE_isMUL_o(DE_isMUL),
-       .DE_isDIV_o(DE_isDIV),
-       .DE_wbEnable_o(DE_wbEnable),
-       .DE_predictBranch_o(DE_predictBranch),
-       .DE_bhtIndex_o(DE_bhtIndex),
-       .DE_predictRA_o(DE_predictRA)
+        .clk_i(clk_i),
+        .reset_i(reset_i),
+        .D_stall_i(D_stall),
+        .D_flush_i(D_flush),
+        .E_flush_i(E_flush),
+        .E_stall_i(E_stall),
+        .E_takeBranch_i(E_takeBranch),
+        .D_predictPC_o(D_predictPC),
+        .D_PCprediction_o(D_PCprediction),
+        .dataHazard_o(dataHazard),
+        .csrMStatus_i(csrMStatus),
+        .csrMedeleg_i(csrMedeleg),
+        .csrMtvec_i(csrMtvec),
+        .csrMepc_i(csrMepc),
+        .csrStvec_i(csrStvec),
+        .csrSepc_i(csrSepc),
+        .csrMStatusSet_o(csrMStatusSet),
+        .csrMepcSet_o(csrMepcSet),
+        .csrMCauseSet_o(csrMCauseSet),
+        .csrSepcSet_o(csrSepcSet),
+        .csrSCauseSet_o(csrSCauseSet),
+        .csrTrapSetEn_o(csrTrapSetEn),
+        .privilege_i(privilege),
+        .privilegeSet_o(privilegeSet),
+        .privilegeSetEn_o(privilegeSetEn),
+        .FD_PC_i(FD_PC),
+        .FD_instr_i(FD_instr),
+        .FD_isRV32C_i(FD_isRV32C),
+        .FD_nop_i(FD_nop),
+        .DE_PC_o(DE_PC),
+        .DE_instr_o(DE_instr),
+        .DE_isRV32C_o(DE_isRV32C),
+        .DE_nop_o(DE_nop),
+        .DE_isLUI_o(DE_isLUI),
+        .DE_isAUIPC_o(DE_isAUIPC),
+        .DE_isJAL_o(DE_isJAL),
+        .DE_isJALR_o(DE_isJALR),
+        .DE_isBranch_o(DE_isBranch),
+        .DE_isLoad_o(DE_isLoad),
+        .DE_isStore_o(DE_isStore),
+        .DE_isALUI_o(DE_isALUI),
+        .DE_isALUR_o(DE_isALUR),
+        .DE_isFENCE_o(DE_isFENCE),
+        .DE_isSYS_o(DE_isSYS),
+        .DE_isEBREAK_o(DE_isEBREAK),
+        .DE_isCSR_o(DE_isCSR),
+        .DE_isAMO_o(DE_isAMO),
+        .DE_isFPU_o(DE_isFPU),
+        .DE_rdId_o(DE_rdId),
+        .DE_rs1Id_o(DE_rs1Id),
+        .DE_rs2Id_o(DE_rs2Id),
+        .DE_rs3Id_o(DE_rs3Id),
+        .DE_csrId_o(DE_csrId),
+        .DE_funct3_o(DE_funct3),
+        .DE_funct3_is_o(DE_funct3_is),
+        .DE_funct7_o(DE_funct7),
+        .DE_Iimm_o(DE_Iimm),
+        .DE_Simm_o(DE_Simm),
+        .DE_Bimm_o(DE_Bimm),
+        .DE_Uimm_o(DE_Uimm),
+        .DE_isRV32M_o(DE_isRV32M),
+        .DE_isMUL_o(DE_isMUL),
+        .DE_isDIV_o(DE_isDIV),
+        .DE_wbEnable_o(DE_wbEnable),
+        .DE_predictBranch_o(DE_predictBranch),
+        .DE_bhtIndex_o(DE_bhtIndex),
+        .DE_predictRA_o(DE_predictRA)
 );
 
 /******************************************************************************
@@ -283,6 +338,7 @@ ExecuteUnit execute(
         .rs3Data_i(rs3Data),
         .csrRAddr_o(csrRAddr),
         .csrRData_i(csrRData),
+        .csrFFlagsSet_o(csrFFlagsSet),
         .csrFRM_i(csrFRM),
         .DMemRAddr_o(DMemRAddr_o),
         .DMemRData_i(DMemRData_i),
@@ -370,8 +426,7 @@ MemoryUnit memory(
         .IO_memWr_o(IO_memWr_o),
         .csrWAddr_o(csrWAddr),
         .csrWData_o(csrWData),
-        // .csrRAddr_o(csrRAddr),
-        // .csrRData_i(csrRData),
+        .csrWEnable_o(csrWEnable),
         .csrInstStep_o(csrInstStep),
         .EM_PC_i(EM_PC),
         .EM_instr_i(EM_instr),

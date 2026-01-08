@@ -21,8 +21,7 @@ module MemoryUnit (
         // CSR Interface
         output wire [11:0] csrWAddr_o,
         output wire [31:0] csrWData_o,
-        // output wire [11:0] csrRAddr_o,
-        // input  wire [31:0] csrRData_i,
+        output wire        csrWEnable_o,
         output wire        csrInstStep_o,
         // Execute Unit Interface
         input  wire [31:0] EM_PC_i,
@@ -167,8 +166,9 @@ end
 
 
 /*-----------------------CSR----------------------*/
-assign csrWAddr_o = EM_isCSR_i ? EM_csrId_i : 12'bZ;
-assign csrWData_o = EM_isCSR_i ? EM_Eresult_i : 32'bZ;
+assign csrWAddr_o   = EM_isCSR_i ? EM_csrId_i : 12'bZ;
+assign csrWData_o   = EM_isCSR_i ? EM_Eresult_i : 32'bZ;
+assign csrWEnable_o = EM_isCSR_i;
 
 // Step up instruction counter if not a NOP
 assign csrInstStep_o  = ~MW_nop_o;

@@ -16,6 +16,7 @@ module FPU (
         input  wire [31:0] rs2_i,
         input  wire [31:0] rs3_i,
         input  wire [2:0]  rm_i,
+        output wire [4:0]  fflags_o,
 
         output wire        busy_o,
         output wire [31:0] fpuOut_o
@@ -24,6 +25,9 @@ module FPU (
 reg [31:0] out;
 assign fpuOut_o = out;
 assign busy_o = fpuEnable_i & ((isFDIV & ~fdivReady) | (isFSQRT & ~fsqrtReady));
+
+reg [4:0] fflags = 0;
+assign fflags_o = fflags;
 
 // Decode floating point numbers
 wire        [9:0]  rs1FullClass;
