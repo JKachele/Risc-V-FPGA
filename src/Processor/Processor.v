@@ -60,9 +60,6 @@ wire [31:0] csrMCauseSet;
 wire [31:0] csrSepcSet;
 wire [31:0] csrSCauseSet;
 wire        csrTrapSetEn;
-wire [1:0]  privilege;
-wire [1:0]  privilegeSet;
-wire        privilegeSetEn;
 
 RegisterFile registers(
         .clk_i(clk_i),
@@ -102,10 +99,7 @@ CSR_RegFile csr(
         .csrMCauseSet_i(csrMCauseSet),
         .csrSepcSet_i(csrSepcSet),
         .csrSCauseSet_i(csrSCauseSet),
-        .csrTrapSetEn_i(csrTrapSetEn),
-        .privilege_o(privilege),
-        .privilegeSet_i(privilegeSet),
-        .privilegeSetEn_i(privilegeSetEn)
+        .csrTrapSetEn_i(csrTrapSetEn)
 );
 
 /******************************************************************************
@@ -120,6 +114,7 @@ wire D_flush;
 wire E_flush;
 wire M_flush;
 wire dataHazard;
+wire D_isPrivileged;
 wire D_predictPC;
 wire [31:0] D_PCprediction;
 /*verilator public_off*/
@@ -127,6 +122,8 @@ wire [31:0] D_PCprediction;
 ControlUnit control(
         .HALT_i(HALT),
         .dataHazard_i(dataHazard),
+        .D_isPrivileged_i(D_isPrivileged),
+        .EM_isCSRWrite_i(EM_isCSRWrite),
         .aluBusy_i(aluBusy),
         .E_correctPC_i(E_correctPC),
         .F_stall_o(F_stall),
@@ -228,21 +225,21 @@ DecodeUnit #(
         .D_predictPC_o(D_predictPC),
         .D_PCprediction_o(D_PCprediction),
         .dataHazard_o(dataHazard),
+        .D_isPrivileged_o(D_isPrivileged),
         .csrMStatus_i(csrMStatus),
         .csrMedeleg_i(csrMedeleg),
         .csrMtvec_i(csrMtvec),
         .csrMepc_i(csrMepc),
+        .csrMCause_i(csrMCause),
         .csrStvec_i(csrStvec),
         .csrSepc_i(csrSepc),
+        .csrSCause_i(csrSCause),
         .csrMStatusSet_o(csrMStatusSet),
         .csrMepcSet_o(csrMepcSet),
         .csrMCauseSet_o(csrMCauseSet),
         .csrSepcSet_o(csrSepcSet),
         .csrSCauseSet_o(csrSCauseSet),
         .csrTrapSetEn_o(csrTrapSetEn),
-        .privilege_i(privilege),
-        .privilegeSet_o(privilegeSet),
-        .privilegeSetEn_o(privilegeSetEn),
         .FD_PC_i(FD_PC),
         .FD_instr_i(FD_instr),
         .FD_isRV32C_i(FD_isRV32C),
@@ -297,6 +294,7 @@ wire        EM_nop;
 wire        EM_isLoad;
 wire        EM_isStore;
 wire        EM_isCSR;
+wire        EM_isCSRWrite;
 wire        EM_isAMO;
 wire [5:0]  EM_rdId;
 wire [5:0]  EM_rs1Id;
@@ -388,6 +386,7 @@ ExecuteUnit execute(
         .EM_isLoad_o(EM_isLoad),
         .EM_isStore_o(EM_isStore),
         .EM_isCSR_o(EM_isCSR),
+        .EM_isCSRWrite_o(EM_isCSRWrite),
         .EM_isAMO_o(EM_isAMO),
         .EM_rdId_o(EM_rdId),
         .EM_rs1Id_o(EM_rs1Id),

@@ -38,11 +38,7 @@ module CSR_RegFile (
         input  wire [31:0] csrMCauseSet_i,
         input  wire [31:0] csrSepcSet_i,
         input  wire [31:0] csrSCauseSet_i,
-        input  wire        csrTrapSetEn_i,
-        // Privilege Level
-        output wire [1:0]  privilege_o,
-        input  wire [1:0]  privilegeSet_i,
-        input  wire        privilegeSetEn_i
+        input  wire        csrTrapSetEn_i
 );
 
 // Counters
@@ -154,25 +150,37 @@ always @(posedge clk_i) begin
                 CSR_stvec          <= 32'b0;
                 CSR_sepc           <= 32'b0;
                 CSR_scause         <= 32'b0;
+        end else if (csrTrapSetEn_i) begin
+                CSR_mstatus [12:11]     <= csrMStatusSet_i[6:5]; // MPP
+                CSR_mstatus [7]         <= csrMStatusSet_i[4];   // MPIE
+                CSR_mstatus [3]         <= csrMStatusSet_i[3];   // MIE
+                CSR_mstatus [8]         <= csrMStatusSet_i[2];   // SPP
+                CSR_mstatus [5]         <= csrMStatusSet_i[1];   // SPIE
+                CSR_mstatus [1]         <= csrMStatusSet_i[0];   // SPE
+
+                CSR_mepc                <= csrMepcSet_i;
+                CSR_mcause              <= csrMCauseSet_i;
+                CSR_sepc                <= csrSepcSet_i;
+                CSR_scause              <= csrSCauseSet_i;
         end else if (csrWEnable_i) begin
                 case (csrWAddr_i)
-                        FFLAGS_ID:   CSR_fcsr           <= csrWData_i & FFLAGS_MASK;
-                        FRM_ID:      CSR_fcsr           <= csrWData_i & FRM_MASK;
-                        FCSR_ID:     CSR_fcsr           <= csrWData_i & FCSR_MASK;
+                        FFLAGS_ID:   CSR_fcsr     <= csrWData_i & FFLAGS_MASK;
+                        FRM_ID:      CSR_fcsr     <= csrWData_i & FRM_MASK;
+                        FCSR_ID:     CSR_fcsr     <= csrWData_i & FCSR_MASK;
 
-                        MSTATUS_ID:  CSR_mstatus        <= csrWData_i & MSTATUS_MASK;
-                        MSTATUSH_ID: CSR_mstatush       <= csrWData_i & MSTATUSH_MASK;
-                        MEDELEG_ID:  CSR_medeleg[31:0]  <= csrWData_i;
-                        MEDELEGH_ID: CSR_medeleg[63:32] <= csrWData_i;
-                        MIDELEG_ID:  CSR_mideleg        <= csrWData_i;
-                        MTVEC_ID:    CSR_mtvec          <= csrWData_i;
-                        MEPC_ID:     CSR_mepc           <= csrWData_i;
-                        MCAUSE_ID:   CSR_mcause         <= csrWData_i;
+                        MSTATUS_ID:  CSR_mstatus  <= csrWData_i & MSTATUS_MASK;
+                        MSTATUSH_ID: CSR_mstatush <= csrWData_i & MSTATUSH_MASK;
+                        MEDELEG_ID:  CSR_medeleg  <= {CSR_medeleg[63:32], csrWData_i};
+                        MEDELEGH_ID: CSR_medeleg  <= {csrWData_i, CSR_medeleg[31:0]};
+                        MIDELEG_ID:  CSR_mideleg  <= csrWData_i;
+                        MTVEC_ID:    CSR_mtvec    <= csrWData_i;
+                        MEPC_ID:     CSR_mepc     <= csrWData_i;
+                        MCAUSE_ID:   CSR_mcause   <= csrWData_i;
 
-                        SSTATUS_ID:  CSR_mstatus        <= csrWData_i & SSTATUS_MASK;
-                        STVEC_ID:    CSR_stvec          <= csrWData_i;
-                        SEPC_ID:     CSR_sepc           <= csrWData_i;
-                        SCAUSE_ID:   CSR_scause         <= csrWData_i;
+                        SSTATUS_ID:  CSR_mstatus  <= csrWData_i & SSTATUS_MASK;
+                        STVEC_ID:    CSR_stvec    <= csrWData_i;
+                        SEPC_ID:     CSR_sepc     <= csrWData_i;
+                        SCAUSE_ID:   CSR_scause   <= csrWData_i;
                         default:;
                 endcase
         end
@@ -189,20 +197,6 @@ always @(posedge clk_i) begin
                 CSR_cycle   <= CSR_cycle + 1'b1;
                 if (csrInstStep_i)
                         CSR_instret <= CSR_instret + 1'b1;
-        end
-end
-
-// Current Privilege Level (Not visible to software; Hardware use only)
-// 0: User, 1: Supervisor, 3: Machine
-reg[1:0] privilege = 2'b11;
-
-always @(posedge clk_i) begin
-        if (reset_i) begin
-                // Processor starts in machine mode;
-                privilege <= 2'b11;
-        end else begin
-                if (privilegeSetEn_i)
-                        privilege <= privilegeSet_i;
         end
 end
 

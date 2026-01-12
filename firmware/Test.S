@@ -1,22 +1,51 @@
 .global main
 .section .text
 main:
-        la s0, stuff
-        lw s1, (s0)
-        amoadd.w s2, s1, (s0)
-        lw s3, (s0)
+machine:
+        sw      ra, (sp)
+        la      t0, supervisor
+        csrw    mepc, t0
+        la      t1, m_trap
+        csrw    mtvec, t1
+        li      t2, 0x1800
+        csrc    mstatus, t2
+        li      t3, 0x800
+        csrs    mstatus, t3
+        li      t4, 0x100
+        csrs    medeleg, t4
+        call    printMachine
+        mret
 
-        lr.w s1, (s0)
-        add s1, s1, s1
-        sc.w s2, s1, (s0)
-        lw s3, (s0)
+m_trap:
+        csrr    t0, mepc
+        csrr    t1, mcause
+        # la      t2, supervisor
+        # csrw    mepc, t2
+        call    printMTrap
+        mret
 
-        lr.w s1, (s0)
-        sw s3, (s0)
-        add s1, s1, s1
-        sc.w s2, s1, (s0)
-        lw s3, (s0)
+supervisor:
+        la      t0, user
+        csrw    sepc, t0
+        la      t1, s_trap
+        csrw    stvec, t1
+        call    printSupervisor
+        sret
+
+s_trap:
+        csrr    t0, sepc
+        csrr    t1, scause
+        call    printSTrap
+        ecall
+        sret
+
+user:
+        csrr    t0, instret
+        call    printUser
+        ecall
+        lw      ra, (sp)
+        ret
 
 .section .data
-stuff:
-        .word 0x12345678
+Hello:
+        .ascii "Hello, World!\n"
