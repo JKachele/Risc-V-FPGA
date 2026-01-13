@@ -251,8 +251,10 @@ end
 /*------------------Trap Handlers-----------------*/
 localparam US = 2'b00, SU = 2'b01, MA = 2'b11;
 
+/*verilator public_flat_rw_on*/
 // Privilage is machine on startup
 reg [1:0] DD_privilege = MA;
+/*verilator public_off*/
 
 wire D_isTrap = D_isECALL;
 wire D_isPrivileged = D_isTrap | D_isMRET | D_isSRET;

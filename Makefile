@@ -35,10 +35,15 @@ BIN_DIR := bin
 BUILD_DIR := build
 
 # Firmware
-SRC := firmware/startPipeline.S firmware/Test.c firmware/Test.S
-SRC += $(wildcard firmware/libs/*.S) $(wildcard firmware/libs/*.c) 
+SRC := $(wildcard firmware/OS/*.c)
+SRC += $(wildcard firmware/OS/*/*.c) $(wildcard firmware/OS/*/*.S) 
+SRC += $(wildcard firmware/OS/*/*/*.c) $(wildcard firmware/OS/*/*/*.S) 
 OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
-LDSCRIPT = firmware/ram.ld
+LDSCRIPT = firmware/OS/kernel.ld
+# SRC := firmware/Tests/startPipeline.S firmware/Tests/Test.c firmware/Tests/Test.S
+# SRC += $(wildcard firmware/libs/*.S) $(wildcard firmware/libs/*.c) 
+# OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
+# LDSCRIPT = firmware/Tests/ram.ld
 
 ROM := $(BIN_DIR)/ROM.hex
 RAM := $(BIN_DIR)/RAM.hex
@@ -49,14 +54,14 @@ FIRMWARE := $(BIN_DIR)/firmware.elf
 hex: $(ROM) $(RAM)
 
 $(ROM): $(FIRMWARE)
-	$(OBJCOPY) $< -R .data -O binary $@.bin
+	$(OBJCOPY) $< -j .text -O binary $@.bin
 	hexdump -ve '1/2 "%04x\n"' $@.bin > $@
 	rm $@.bin
 
 $(RAM): $(FIRMWARE)
-	$(OBJCOPY) $< -R .text -O binary $@.bin
+	$(OBJCOPY) $< -j .data -O binary $@.bin
 	hexdump -ve '"%08x\n"' $@.bin > $@
-	rm $@.bin
+	# rm $@.bin
 
 $(FIRMWARE): $(OBJ) Makefile
 	@mkdir -p $(dir $@)
@@ -75,7 +80,7 @@ sim: $(ROM) $(RAM)
 	rm -rf ./obj_dir
 	$(TB) $(TBFLAGS) $(TBSRC) $(VSRC)
 	cd obj_dir; make -f V$(TOP).mk -s
-	cd obj_dir; ./V$(TOP)
+	cd obj_dir; ./V$(TOP) | tee ../$(BIN_DIR)/sim.log
 
 $(BIN_DIR):
 	mkdir -p $@

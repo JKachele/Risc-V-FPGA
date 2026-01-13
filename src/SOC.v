@@ -15,8 +15,10 @@ module SOC (
         output wire TXD
 );
 
+/*verilator public_flat_rw_on*/
 wire clk;
 wire reset;
+/*verilator public_off*/
 
 //Memory
 wire [31:0] IMemAddr;

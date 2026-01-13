@@ -67,18 +67,27 @@ class SOC_TB : public TESTB<VSOC> {
 
 public:
         IData prevLEDS;
+        CData prevCLK;
 
         virtual void tick(void) {
                 TESTB<VSOC>::tick();
-                if (prevLEDS != m_core->LEDS) {
-                        printf("LEDS: ");
-                        printf("%x - ", m_core->LEDS);
-                        for (int i=0; i<16; i++) {
-                                printf("%d", (m_core->LEDS >> (15-i)) & 1);
-                        }
-                        printf("\n");
-                }
+                CData clk = m_core->rootp->SOC__DOT__clk;
+                // if (prevCLK != clk && clk == 1) {
+                //         printf("%4x: ", m_core->rootp->SOC__DOT__CPU__DOT__FD_PC);
+                //         printf("%x\n", m_core->rootp->SOC__DOT__CPU__DOT__FD_instr);
+                //         printf("\tPriv: %x ", m_core->rootp->SOC__DOT__CPU__DOT__decode__DOT__DD_privilege);
+                //         printf("MEPC: %x\n", m_core->rootp->SOC__DOT__CPU__DOT__csr__DOT__CSR_mepc);
+                // }
+                // if (prevLEDS != m_core->LEDS) {
+                //         printf("LEDS: ");
+                //         printf("%x - ", m_core->LEDS);
+                //         for (int i=0; i<16; i++) {
+                //                 printf("%d", (m_core->LEDS >> (15-i)) & 1);
+                //         }
+                //         printf("\n");
+                // }
                 prevLEDS = m_core->LEDS;
+                prevCLK = m_core->rootp->SOC__DOT__clk;
                 updateStats();
         }
 
@@ -89,6 +98,9 @@ public:
 
                 // Exit 1 clock after halt to allow simulation to finish
                 if (clocksAfterHalt > 1)
+                        return true;
+
+                if (rootp->SOC__DOT__CPU__DOT__FD_PC > 0xf00)
                         return true;
 
                 // Default
@@ -139,7 +151,7 @@ int main(int argc, char **argv) {
         uart->setup(setup);
         baudclocks = setup & 0xfffffff;
 
-        // tb->opentrace("trace.vcd");
+        tb->opentrace("trace.vcd");
 
         int rxPrev = 1;
         while (!tb->done()) {

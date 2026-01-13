@@ -56,12 +56,14 @@ reg [31:0] CSR_mideleg  = 0;
 reg [31:0] CSR_mtvec    = 0;
 reg [31:0] CSR_mepc     = 0;
 reg [31:0] CSR_mcause   = 0;
+reg [31:0] CSR_mscratch = 0;
 
 // Supervisor Mode CSRs
 // sstatus CSR is subset of mstatus CSR
 reg [31:0] CSR_stvec    = 0;
 reg [31:0] CSR_sepc     = 0;
 reg [31:0] CSR_scause   = 0;
+reg [31:0] CSR_sscratch = 0;
 
 // Register IDs
 localparam CYCLE_ID      = 12'hC00;
@@ -82,6 +84,7 @@ localparam MEDELEG_ID    = 12'h302;
 localparam MEDELEGH_ID   = 12'h312;
 localparam MIDELEG_ID    = 12'h303;
 localparam MTVEC_ID      = 12'h305;
+localparam MSCRATCH_ID   = 12'h340;
 localparam MEPC_ID       = 12'h341;
 localparam MCAUSE_ID     = 12'h342;
 localparam MSTATUS_MASK  = 32'h81FFFFEA;
@@ -89,6 +92,7 @@ localparam MSTATUSH_MASK = 32'h000006F0;
 
 localparam SSTATUS_ID    = 12'h100;
 localparam STVEC_ID      = 12'h105;
+localparam SSCRATCH_ID   = 12'h140;
 localparam SEPC_ID       = 12'h141;
 localparam SCAUSE_ID     = 12'h142;
 localparam SSTATUS_MASK  = 32'h818DE762;
@@ -113,11 +117,13 @@ always @(*) begin
                 MEDELEGH_ID: rData = CSR_medeleg[63:32];
                 MIDELEG_ID:  rData = CSR_mideleg;
                 MTVEC_ID:    rData = CSR_mtvec;
+                MSCRATCH_ID: rData = CSR_mscratch;
                 MEPC_ID:     rData = CSR_mepc;
                 MCAUSE_ID:   rData = CSR_mcause;
 
                 SSTATUS_ID:  rData = CSR_mstatus & SSTATUS_MASK;
                 STVEC_ID:    rData = CSR_stvec;
+                SSCRATCH_ID: rData = CSR_sscratch;
                 SEPC_ID:     rData = CSR_sepc;
                 SCAUSE_ID:   rData = CSR_scause;
                 default:     rData = 32'b0;
@@ -144,10 +150,12 @@ always @(posedge clk_i) begin
                 CSR_medeleg        <= 64'b0;
                 CSR_mideleg        <= 32'b0;
                 CSR_mtvec          <= 32'b0;
+                CSR_mscratch       <= 32'b0;
                 CSR_mepc           <= 32'b0;
                 CSR_mcause         <= 32'b0;
                 CSR_mstatus        <= 32'b0;
                 CSR_stvec          <= 32'b0;
+                CSR_sscratch       <= 32'b0;
                 CSR_sepc           <= 32'b0;
                 CSR_scause         <= 32'b0;
         end else if (csrTrapSetEn_i) begin
@@ -174,11 +182,13 @@ always @(posedge clk_i) begin
                         MEDELEGH_ID: CSR_medeleg  <= {csrWData_i, CSR_medeleg[31:0]};
                         MIDELEG_ID:  CSR_mideleg  <= csrWData_i;
                         MTVEC_ID:    CSR_mtvec    <= csrWData_i;
+                        MSCRATCH_ID: CSR_mscratch <= csrWData_i;
                         MEPC_ID:     CSR_mepc     <= csrWData_i;
                         MCAUSE_ID:   CSR_mcause   <= csrWData_i;
 
                         SSTATUS_ID:  CSR_mstatus  <= csrWData_i & SSTATUS_MASK;
                         STVEC_ID:    CSR_stvec    <= csrWData_i;
+                        SSCRATCH_ID: CSR_sscratch <= csrWData_i;
                         SEPC_ID:     CSR_sepc     <= csrWData_i;
                         SCAUSE_ID:   CSR_scause   <= csrWData_i;
                         default:;

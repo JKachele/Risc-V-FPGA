@@ -1,6 +1,25 @@
 [
   {
     "arguments": [
+      "/opt/riscv/bin/riscv64-unknown-elf-gcc",
+      "-c",
+      "-O2",
+      "-march=rv32imafc",
+      "-mabi=ilp32f",
+      "-Wno-builtin-declaration-mismatch",
+      "-fno-pic",
+      "-fno-stack-protector",
+      "-w",
+      "-o",
+      "build/firmware/OS/kernel.c.o",
+      "firmware/OS/kernel.c"
+    ],
+    "directory": "/home/vagrant/Programming/FPGA/Risc-V-FPGA",
+    "file": "/home/vagrant/Programming/FPGA/Risc-V-FPGA/firmware/OS/kernel.c",
+    "output": "/home/vagrant/Programming/FPGA/Risc-V-FPGA/build/firmware/OS/kernel.c.o"
+  },
+  {
+    "arguments": [
       "/usr/bin/g++",
       "-I.",
       "-I/usr/local/share/verilator/include",
