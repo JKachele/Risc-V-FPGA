@@ -66,6 +66,7 @@ m_trap:
         csrw mscratch, a0
 
         mv a0, sp
+        csrr a1, mcause
         call mtrap_handler
 
         lw ra,  4 * 0(sp)

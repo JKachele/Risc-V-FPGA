@@ -6,7 +6,9 @@
  *License-------GNU GPL-3.0
  ************************************************/
 
+#include <stdio.h>
 #include "kernel.h"
+#include "common.h"
 
 extern char __bss[];
 extern char __bss_end[];
@@ -31,15 +33,7 @@ struct sbiret sbiCall(long arg0, long arg1, long arg2, long arg3, long arg4,
         return (struct sbiret) {.error = a0, .value = a1};
 }
 
-void* memset(void *buf, char c, size_t n) {
-        u8 *p = (u8*)buf;
-        while (n--) {
-                *p++ = c;
-        }
-        return buf;
-}
-
-void putchar(char c) {
+int putchar(int c) {
         sbiCall(c, 0, 0, 0, 0, 0, 0, 1);
 }
 
@@ -52,8 +46,7 @@ void putstr(size_t strLen, char *c) {
 }
 
 void kernel_main(void) {
-        const char *s = "\nHello, World!\n";
-        putstr(15, s);
+        printf("Hello, World!\n");
 
         // for(;;);
         exit();

@@ -61,7 +61,7 @@ $(ROM): $(FIRMWARE)
 $(RAM): $(FIRMWARE)
 	$(OBJCOPY) $< -j .data -O binary $@.bin
 	hexdump -ve '"%08x\n"' $@.bin > $@
-	# rm $@.bin
+	rm $@.bin
 
 $(FIRMWARE): $(OBJ) Makefile
 	@mkdir -p $(dir $@)

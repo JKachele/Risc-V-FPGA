@@ -61,7 +61,7 @@ struct sbiret sbi_handler(long arg0, long arg1, long arg2, long arg3, long arg4,
         return ret;
 }
 
-void mtrap_handler(struct trap_frame *f) {
+void mtrap_handler(struct trap_frame *f, int cause) {
         struct sbiret ret;
         ret = sbi_handler(f->a0, f->a1, f->a2, f->a3, f->a4, f->a5, f->a6, f->a7);
         f->a0 = ret.error;

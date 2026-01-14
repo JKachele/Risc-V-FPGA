@@ -26,7 +26,8 @@
 #define SBI_ERR_IO                -13
 #define SBI_ERR_DENIED_LOCKOUT    -14
 
-typedef uint8_t u8;
+typedef uint8_t  u8;
+typedef uint16_t u16;
 typedef uint32_t u32;
 
 struct sbiret {

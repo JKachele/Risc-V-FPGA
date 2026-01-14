@@ -100,9 +100,6 @@ public:
                 if (clocksAfterHalt > 1)
                         return true;
 
-                if (rootp->SOC__DOT__CPU__DOT__FD_PC > 0xf00)
-                        return true;
-
                 // Default
                 return TESTB<VSOC>::done();
         }
