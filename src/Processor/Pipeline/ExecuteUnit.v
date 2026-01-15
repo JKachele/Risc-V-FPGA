@@ -5,7 +5,6 @@
  *Author--------Justin Kachele
  *Created-------Tuesday Dec 02, 2025 17:21:18 UTC
  ************************************************/
-/* verilator lint_off WIDTH */
 
 module ExecuteUnit (
         input  wire clk_i,
@@ -24,9 +23,9 @@ module ExecuteUnit (
         output wire [5:0]  rs1Id_o,
         output wire [5:0]  rs2Id_o,
         output wire [5:0]  rs3Id_o,
-        input  wire [31:0] rs1Data_i,
-        input  wire [31:0] rs2Data_i,
-        input  wire [31:0] rs3Data_i,
+        input  wire [63:0] rs1Data_i,
+        input  wire [63:0] rs2Data_i,
+        input  wire [63:0] rs3Data_i,
         // CSR Interface
         output wire [11:0] csrRAddr_o,
         input  wire [31:0] csrRData_i,
@@ -34,11 +33,11 @@ module ExecuteUnit (
         input  wire [2:0]  csrFRM_i,
         // Memory Interface
         output wire [31:0] DMemRAddr_o,
-        input  wire [31:0] DMemRData_i,
+        input  wire [63:0] DMemRData_i,
         // Register Forwarding
         input  wire        MW_wbEnable_i,
         input  wire [5:0]  MW_rdId_i,
-        input  wire [31:0] MW_wbData_i,
+        input  wire [63:0] MW_wbData_i,
         // Decode Unit Interface
         input  wire [31:0] DE_PC_i,
         input  wire [31:0] DE_instr_i,
@@ -90,12 +89,12 @@ module ExecuteUnit (
         output reg  [5:0]  EM_rs1Id_o,
         output reg  [5:0]  EM_rs2Id_o,
         output reg  [11:0] EM_csrId_o,
-        output reg  [31:0] EM_rs2_o,
+        output reg  [63:0] EM_rs2_o,
         output reg  [2:0]  EM_funct3_o,
         output reg  [6:0]  EM_funct7_o,
-        output reg  [31:0] EM_Eresult_o,
+        output reg  [63:0] EM_Eresult_o,
         output reg  [31:0] EM_addr_o,
-        output reg  [31:0] EM_Mdata_o,
+        output reg  [63:0] EM_Mdata_o,
         output reg  [31:0] EM_CSRdata_o,
         output reg         EM_wbEnable_o
 );
@@ -116,22 +115,22 @@ assign rs1Id_o = DE_rs1Id_i;
 assign rs2Id_o = DE_rs2Id_i;
 assign rs3Id_o = DE_rs3Id_i;
 
-wire [31:0] E_rs1 = EMfwd_rs1 ? EM_Eresult_o :
+wire [63:0] E_rs1 = EMfwd_rs1 ? EM_Eresult_o :
         EWfwd_rs1 ? MW_wbData_i : rs1Data_i;
 
-wire [31:0] E_rs2 = EMfwd_rs2 ? EM_Eresult_o :
+wire [63:0] E_rs2 = EMfwd_rs2 ? EM_Eresult_o :
         EWfwd_rs2 ? MW_wbData_i : rs2Data_i;
 
-wire [31:0] E_rs3 = EMfwd_rs3 ? EM_Eresult_o :
+wire [63:0] E_rs3 = EMfwd_rs3 ? EM_Eresult_o :
         EWfwd_rs3 ? MW_wbData_i : rs3Data_i;
 
 /*---------------ADD/SUBTRACT/SHIFT---------------*/
 wire [31:0] E_aluIn1 =
-        DE_isAMO_i ? DMemRData_i :
-        DE_isCSR_i ? csrRData_i  : E_rs1;
+        DE_isAMO_i ? DMemRData_i[31:0] :
+        DE_isCSR_i ? csrRData_i  : E_rs1[31:0];
 wire [31:0] E_aluIn2 =
-        DE_isALUR_i | DE_isBranch_i | DE_isAMO_i ? E_rs2   :
-        DE_isCSR_i ? (DE_funct3_i[2] ? DE_rs1Id_i : E_rs1) : DE_Iimm_i;
+        (DE_isALUR_i | DE_isBranch_i | DE_isAMO_i) ? E_rs2[31:0] :
+        (DE_isCSR_i ? (DE_funct3_i[2] ? {26'b0, DE_rs1Id_i} : E_rs1[31:0]) : DE_Iimm_i);
 
 // Add Subtract
 wire E_isMinus = DE_funct7_i[5] & DE_isALUR_i;
@@ -161,9 +160,9 @@ endfunction
 wire E_arithShift = DE_funct7_i[5];
 wire [31:0] E_shifterIn = 
         (DE_funct3_i == 3'b001) ? flip32(E_aluIn1) : E_aluIn1;
-wire [31:0] E_shifter =
+wire [32:0] E_shifter =
         $signed({E_arithShift & E_aluIn1[31], E_shifterIn}) >>> E_aluIn2[4:0];
-wire [31:0] E_leftShift = flip32(E_shifter);
+wire [31:0] E_leftShift = flip32(E_shifter[31:0]);
 
 wire [31:0] E_aluOutBase = 
         (DE_funct3_is_i[0] ? (E_isMinus ? E_aluMinus[31:0] : E_aluPlus) : 32'b0) |
@@ -171,7 +170,7 @@ wire [31:0] E_aluOutBase =
         (DE_funct3_is_i[2] ? {31'b0, E_LT}                              : 32'b0) |
         (DE_funct3_is_i[3] ? {31'b0, E_LTU}                             : 32'b0) |
         (DE_funct3_is_i[4] ? E_aluXOR                                   : 32'b0) |
-        (DE_funct3_is_i[5] ? E_shifter                                  : 32'b0) |
+        (DE_funct3_is_i[5] ? E_shifter[31:0]                            : 32'b0) |
         (DE_funct3_is_i[6] ? E_aluOR                                    : 32'b0) |
         (DE_funct3_is_i[7] ? E_aluAND                                   : 32'b0) ;
 
@@ -182,8 +181,8 @@ wire E_isMULHSU = DE_funct3_is_i[2];
 wire E_mulSign1 = E_rs1[31] & E_isMULH;
 wire E_mulSign2 = E_rs2[31] & (E_isMULH | E_isMULHSU);
 
-wire signed [32:0] E_mulSigned1 = {E_mulSign1, E_rs1};
-wire signed [32:0] E_mulSigned2 = {E_mulSign2, E_rs2};
+wire signed [32:0] E_mulSigned1 = {E_mulSign1, E_rs1[31:0]};
+wire signed [32:0] E_mulSigned2 = {E_mulSign2, E_rs2[31:0]};
 wire signed [63:0] E_multiply   = E_mulSigned1 * E_mulSigned2;
 
 /*---------------------DIVIDE---------------------*/
@@ -204,12 +203,12 @@ always @(posedge clk_i) begin
                         EE_quotientMsk <= 1 << 31;
                         EE_divBusy <= 1'b1;
                 end
-                EE_dividend <= ~DE_funct3_i[0] & E_rs1[31] ? -E_rs1 : E_rs1;
+                EE_dividend <= ~DE_funct3_i[0] & E_rs1[31] ? -E_rs1[31:0] : E_rs1[31:0];
                 EE_divisor <=
-                        {(~DE_funct3_i[0] & E_rs2[31] ? -E_rs2 : E_rs2), 31'b0};
+                        {(~DE_funct3_i[0] & E_rs2[31] ? -E_rs2[31:0] : E_rs2[31:0]), 31'b0};
                 EE_quotient <= 0;
                 EE_divSign <= ~DE_funct3_i[0] & (DE_funct3_i[1] ? E_rs1[31] :
-                        (E_rs1[31] != E_rs2[31]) & |E_rs2);
+                        (E_rs1[31] != E_rs2[31]) & |E_rs2[31:0]);
         end else begin
                 EE_dividend <= E_divstepDo ? EE_dividend - EE_divisor[31:0] :
                                              EE_dividend;
@@ -244,8 +243,8 @@ wire [31:0] E_csrOut =
 /*-----------Atomic Memory Instructions-----------*/
 // Memory access address
 wire [31:0] E_addr =
-        DE_isAMO_i   ? E_rs1             :
-        DE_isStore_i ? E_rs1 + DE_Simm_i : E_rs1 + DE_Iimm_i;
+        DE_isAMO_i   ? E_rs1[31:0]             :
+        DE_isStore_i ? E_rs1[31:0] + DE_Simm_i : E_rs1[31:0] + DE_Iimm_i;
 assign DMemRAddr_o = E_addr;
 
 wire [31:0] E_amoOut = 
@@ -259,10 +258,14 @@ wire [31:0] E_amoOut =
         (DE_funct7_i[6:2] == 5'h18 ? ( E_LTU ? E_aluIn1 : E_aluIn2) : 32'b0) | // amominu.w
         (DE_funct7_i[6:2] == 5'h1C ? (!E_LTU ? E_aluIn1 : E_aluIn2) : 32'b0) ; // amomaxu.w
 
+wire [31:0] E_aluOut_32 = DE_isRV32M_i ? E_aluOutM : 
+                          DE_isCSR_i   ? E_csrOut  :
+                          DE_isAMO_i   ? E_amoOut  : E_aluOutBase;
+
 /*----------------------FPU-----------------------*/
 wire E_fpuBusy;
 wire [2:0] E_fpuRound = (&DE_funct3_i) ? csrFRM_i : DE_funct3_i;
-wire [31:0] E_fpuOut;
+wire [63:0] E_fpuOut;
 FPU fpu(
         .clk_i(clk_i),
         .reset_i(reset_i),
@@ -277,10 +280,7 @@ FPU fpu(
         .fpuOut_o(E_fpuOut)
 );
 
-wire [31:0] E_aluOut = DE_isRV32M_i ? E_aluOutM : 
-                       DE_isCSR_i   ? E_csrOut  :
-                       DE_isAMO_i   ? E_amoOut  :
-                       DE_isFPU_i   ? E_fpuOut  : E_aluOutBase;
+wire [63:0] E_aluOut = DE_isFPU_i ? E_fpuOut : {32'hFFFFFFFF, E_aluOut_32};
 
 assign aluBusy_o = EE_divBusy | (DE_isDIV_i & !EE_divFinished) | E_fpuBusy;
 
@@ -310,11 +310,12 @@ wire [31:0] E_PCcorrection =
         /* JALR */      E_JALRaddr;
 
 /*---------------------Output---------------------*/
-wire [31:0] E_result = 
-        (DE_isJAL_i | DE_isJALR_i) ? E_nextPC            :
-        DE_isLUI_i                 ? DE_Uimm_i           :
-        DE_isAUIPC_i               ? DE_PC_i + DE_Uimm_i :
-        /* ALU or AMO OP */          E_aluOut            ;
+wire [63:0] E_result = 
+        (DE_isJAL_i | DE_isJALR_i) ? {32'hFFFFFFFF, E_nextPC}            :
+        DE_isLUI_i                 ? {32'hFFFFFFFF, DE_Uimm_i}           :
+        DE_isAUIPC_i               ? {32'hFFFFFFFF, DE_PC_i + DE_Uimm_i} :
+        /* ALU or AMO OP */          E_aluOut                            ;
+
 
 always @(posedge clk_i) begin
         if (!E_stall_i) begin
@@ -359,5 +360,4 @@ end
 assign HALT_o = (!reset_i && DE_isEBREAK_i);
 
 endmodule
-/* verilator lint_on WIDTH */
 

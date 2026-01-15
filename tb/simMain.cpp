@@ -104,6 +104,41 @@ public:
                 return TESTB<VSOC>::done();
         }
 
+        void printFRegisters(void) {
+                printf("F0 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F0);
+                printf("F1 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F1);
+                printf("F2 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F2);
+                printf("F3 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F3);
+                printf("F4 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F4);
+                printf("F5 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F5);
+                printf("F6 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F6);
+                printf("F7 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F7);
+                printf("F8 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F8);
+                printf("F9 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F9);
+                printf("F10: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F10);
+                printf("F11: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F11);
+                printf("F12: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F12);
+                printf("F13: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F13);
+                printf("F14: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F14);
+                printf("F15: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F15);
+                printf("F16: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F16);
+                printf("F17: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F17);
+                printf("F18: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F18);
+                printf("F19: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F19);
+                printf("F20: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F20);
+                printf("F21: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F21);
+                printf("F22: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F22);
+                printf("F23: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F23);
+                printf("F24: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F24);
+                printf("F25: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F25);
+                printf("F26: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F26);
+                printf("F27: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F27);
+                printf("F28: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F28);
+                printf("F29: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F29);
+                printf("F30: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F30);
+                printf("F31: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F31);
+        }
+
         void printStatusReport(void) {
                 u64 cycle = rootp->CYCLE;
                 u64 instret = rootp->INSTRET;
@@ -127,6 +162,7 @@ public:
                 printf("FPU:%3.3f\%% | ",               nbFPU*100.0/instret);
                 printf("AMO:%3.3f\%%",                  nbAMO*100.0/instret);
                 printf(")\n");
+                printFRegisters();
         }
 
 };
@@ -148,7 +184,7 @@ int main(int argc, char **argv) {
         uart->setup(setup);
         baudclocks = setup & 0xfffffff;
 
-        tb->opentrace("trace.vcd");
+        // tb->opentrace("trace.vcd");
 
         int rxPrev = 1;
         while (!tb->done()) {

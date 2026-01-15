@@ -16,7 +16,7 @@
 #include <math.h>
 #include <stdlib.h>
 
-#include "libs/perf.h"
+#include "../libs/perf.h"
 
 /*******************************************************************/
 

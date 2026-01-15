@@ -3,8 +3,8 @@
 # @file        : Makefile
 # @created     : Friday Oct 17, 2025 14:39:28 UTC
 ######################################################################
-RVARCH = rv32imafc
-RVABI = ilp32f
+RVARCH = rv32imafdc
+RVABI = ilp32d
 RVTOOL_PREFIX := riscv64-unknown-elf
 RVTOOL_DIR := /opt/riscv
 RV_LIB_DIR := $(RVTOOL_DIR)/$(RVTOOL_PREFIX)/lib/$(RVARCH)/$(RVABI)
@@ -21,7 +21,7 @@ LDFLAGS += -L$(RV_LIB_DIR) -lm $(GCC_LIB_DIR)/libgcc.a
 ODFLAGS := -sj .data -dj .text
 
 # Verilog
-VSRC := $(wildcard src/*.v) $(wildcard src/*/*.v) $(wildcard src/*/*/*.v)
+VSRC := $(shell find src/ -type f -name '*.v')
 TOP  := SOC
 XDC  := src/Extern/NexusA7.xdc
 
@@ -35,21 +35,21 @@ BIN_DIR := bin
 BUILD_DIR := build
 
 # Firmware
-SRC := $(wildcard firmware/OS/*.c)
-SRC += $(wildcard firmware/OS/*/*.c) $(wildcard firmware/OS/*/*.S) 
-SRC += $(wildcard firmware/OS/*/*/*.c) $(wildcard firmware/OS/*/*/*.S) 
-OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
-LDSCRIPT = firmware/OS/kernel.ld
-# SRC := firmware/Tests/startPipeline.S firmware/Tests/Test.c firmware/Tests/Test.S
-# SRC += $(wildcard firmware/libs/*.S) $(wildcard firmware/libs/*.c) 
+# SRC := $(wildcard firmware/OS/*.c)
+# SRC += $(wildcard firmware/OS/*/*.c) $(wildcard firmware/OS/*/*.S) 
+# SRC += $(wildcard firmware/OS/*/*/*.c) $(wildcard firmware/OS/*/*/*.S) 
 # OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
-# LDSCRIPT = firmware/Tests/ram.ld
+# LDSCRIPT = firmware/OS/kernel.ld
+SRC := firmware/Tests/startPipeline.S firmware/Tests/Test.S
+SRC += $(wildcard firmware/libs/*.S) $(wildcard firmware/libs/*.c) 
+OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
+LDSCRIPT = firmware/Tests/ram.ld
 
 ROM := $(BIN_DIR)/ROM.hex
 RAM := $(BIN_DIR)/RAM.hex
 FIRMWARE := $(BIN_DIR)/firmware.elf
 
-.PHONY: hex sim lint build dirs clean 
+.PHONY: hex sim lint build dirs clean
 
 hex: $(ROM) $(RAM)
 

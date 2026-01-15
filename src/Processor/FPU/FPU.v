@@ -12,18 +12,25 @@ module FPU (
 
         input  wire        fpuEnable_i,
         input  wire [31:0] instr_i,
-        input  wire [31:0] rs1_i,
-        input  wire [31:0] rs2_i,
-        input  wire [31:0] rs3_i,
+        input  wire [63:0] rs1_i,
+        input  wire [63:0] rs2_i,
+        input  wire [63:0] rs3_i,
         input  wire [2:0]  rm_i,
         output wire [4:0]  fflags_o,
 
         output wire        busy_o,
-        output wire [31:0] fpuOut_o
+        output wire [63:0] fpuOut_o
 );
 
+wire [31:0] rs1_32 = rs1_i[31:0];
+wire [31:0] rs2_32 = rs2_i[31:0];
+wire [31:0] rs3_32 = rs3_i[31:0];
+wire [63:0] rs1_64 = rs1_i;
+wire [63:0] rs2_64 = rs2_i;
+wire [63:0] rs3_64 = rs3_i;
+
 reg [31:0] out;
-assign fpuOut_o = out;
+assign fpuOut_o = {32'hFFFFFFFF, out};
 assign busy_o = fpuEnable_i & ((isFDIV & ~fdivReady) | (isFSQRT & ~fsqrtReady));
 
 reg [4:0] fflags = 0;
@@ -34,17 +41,17 @@ wire        [9:0]  rs1FullClass;
 wire        [5:0]  rs1Class;
 wire signed [9:0]  rs1Exp;
 wire        [23:0] rs1Sig;
-FClass class1(.reg_i(rs1_i), .regExp_o(rs1Exp), .regSig_o(rs1Sig),
+FClass class1(.reg_i(rs1_32), .regExp_o(rs1Exp), .regSig_o(rs1Sig),
         .class_o(rs1Class), .fullClass_o(rs1FullClass));
 wire        [5:0]  rs2Class;
 wire signed [9:0]  rs2Exp;
 wire        [23:0] rs2Sig;
-FClass class2(.reg_i(rs2_i), .regExp_o(rs2Exp), .regSig_o(rs2Sig),
+FClass class2(.reg_i(rs2_32), .regExp_o(rs2Exp), .regSig_o(rs2Sig),
         .class_o(rs2Class), .fullClass_o());
 wire        [5:0]  rs3Class;
 wire signed [9:0]  rs3Exp;
 wire        [23:0] rs3Sig;
-FClass class3(.reg_i(rs3_i), .regExp_o(rs3Exp), .regSig_o(rs3Sig),
+FClass class3(.reg_i(rs3_32), .regExp_o(rs3Exp), .regSig_o(rs3Sig),
         .class_o(rs3Class), .fullClass_o());
 
 // Multiplication
@@ -54,11 +61,11 @@ wire        [47:0] fmulSig;
 wire signed [10:0] fmulExp;
 wire        [5:0]  fmulClass;
 FMUL fmul(
-        .rs1_i(rs1_i),
+        .rs1_i(rs1_32),
         .rs1Exp_i(rs1Exp),
         .rs1Sig_i(rs1Sig),
         .rs1Class_i(rs1Class),
-        .rs2_i(rs2_i),
+        .rs2_i(rs2_32),
         .rs2Exp_i(rs2Exp),
         .rs2Sig_i(rs2Sig),
         .rs2Class_i(rs2Class),
@@ -88,17 +95,17 @@ always @(*) begin
                 addRs1Exp   = fmulExp;
                 addRs1Class = fmulClass;
 
-                addRs2      = (isFNMADD || isFMSUB) ? {~rs3_i[31], rs3_i[30:0]} : rs3_i;
+                addRs2      = (isFNMADD || isFMSUB) ? {~rs3_32[31], rs3_32[30:0]} : rs3_32;
                 addRs2Sig   = {rs3Sig, 24'b0};
                 addRs2Exp   = {rs3Exp[9], rs3Exp};
                 addRs2Class = rs3Class;
         end else begin
-                addRs1      = rs1_i;
+                addRs1      = rs1_32;
                 addRs1Sig   = {rs1Sig, 24'b0};
                 addRs1Exp   = {rs1Exp[9], rs1Exp};
                 addRs1Class = rs1Class;
 
-                addRs2      = (isFSUB) ? {~rs2_i[31], rs2_i[30:0]} : rs2_i;
+                addRs2      = (isFSUB) ? {~rs2_32[31], rs2_32[30:0]} : rs2_32;
                 addRs2Sig   = {rs2Sig, 24'b0};
                 addRs2Exp   = {rs2Exp[9], rs2Exp};
                 addRs2Class = rs2Class;
@@ -126,11 +133,11 @@ FDIV fdiv(
         .clk_i(clk_i),
         .reset_i(reset_i),
         .divEnable_i(fpuEnable_i & isFDIV),
-        .rs1_i(rs1_i),
+        .rs1_i(rs1_32),
         .rs1Exp_i(rs1Exp),
         .rs1Sig_i(rs1Sig),
         .rs1Class_i(rs1Class),
-        .rs2_i(rs2_i),
+        .rs2_i(rs2_32),
         .rs2Exp_i(rs2Exp),
         .rs2Sig_i(rs2Sig),
         .rs2Class_i(rs2Class),
@@ -146,7 +153,7 @@ FSQRT fsqrt(
         .clk_i(clk_i),
         .reset_i(reset_i),
         .sqrtEnable_i(fpuEnable_i & isFSQRT),
-        .rs1_i(rs1_i),
+        .rs1_i(rs1_32),
         .rs1Exp_i(rs1Exp),
         .rs1Sig_i(rs1Sig),
         .rs1Class_i(rs1Class),
@@ -158,11 +165,11 @@ FSQRT fsqrt(
 // Comparisons
 wire [2:0] fcmpOut; // {FLT, FLE, FEQ}
 FCMP fcmp(
-        .rs1_i(rs1_i),
+        .rs1_i(rs1_32),
         .rs1Exp_i(rs1Exp),
         .rs1Sig_i(rs1Sig),
         .rs1Class_i(rs1Class),
-        .rs2_i(rs2_i),
+        .rs2_i(rs2_32),
         .rs2Exp_i(rs2Exp),
         .rs2Sig_i(rs2Sig),
         .rs2Class_i(rs2Class),
@@ -173,7 +180,7 @@ FCMP fcmp(
 wire [31:0] fcvtOut;
 wire [1:0] fcvtInstr = {(isFCVTWS | isFCVTWUS), (isFCVTSWU | isFCVTWUS)};
 FCVT fcvt(
-        .rs1_i(rs1_i),
+        .rs1_i(rs1_32),
         .rs1Exp_i(rs1Exp),
         .rs1Sig_i(rs1Sig),
         .rs1Class_i(rs1Class),
@@ -185,10 +192,10 @@ FCVT fcvt(
 always @(*) begin
         case (1'b1)
                 // Move and convert
-                isFSGNJ              : out = {           rs2_i[31], rs1_i[30:0]};
-	        isFSGNJN             : out = {          !rs2_i[31], rs1_i[30:0]};
-	        isFSGNJX             : out = { rs1_i[31]^rs2_i[31], rs1_i[30:0]};
-                isFMVXW  | isFMVWX   : out = rs1_i;
+                isFSGNJ              : out = {           rs2_32[31], rs1_32[30:0]};
+	        isFSGNJN             : out = {          !rs2_32[31], rs1_32[30:0]};
+	        isFSGNJX             : out = { rs1_32[31]^rs2_32[31], rs1_32[30:0]};
+                isFMVXW  | isFMVWX   : out = rs1_32;
                 isFCVTSW | isFCVTSWU : out = fcvtOut;
                 isFCVTWS | isFCVTWUS : out = fcvtOut;
 
@@ -196,7 +203,7 @@ always @(*) begin
                 isFEQ                : out = {31'b0, fcmpOut[0]};
                 isFLE                : out = {31'b0, fcmpOut[1]};
                 isFLT                : out = {31'b0, fcmpOut[2]};
-                isFMAX   | isFMIN    : out = (fcmpOut[2] ^ isFMAX) ? rs1_i : rs2_i;
+                isFMAX   | isFMIN    : out = (fcmpOut[2] ^ isFMAX) ? rs1_32 : rs2_32;
                 isFCLASS             : out = {22'b0, rs1FullClass};
 
                 isFMUL               : out = fmulOut;

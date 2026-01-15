@@ -12,8 +12,8 @@ module MemoryUnit (
         // Pipeline Control Signals
         // Memory/IO Interface
         output wire [31:0] DMemWAddr_o,
-        output wire [31:0] DMemWData_o,
-        output wire [3:0]  DMemWMask_o,
+        output wire [63:0] DMemWData_o,
+        output wire [4:0]  DMemWMask_o,
         output wire [31:0] IO_memAddr_o,
         input  wire [31:0] IO_memRData_i,
         output wire [31:0] IO_memWData_o,
@@ -35,12 +35,12 @@ module MemoryUnit (
         input  wire [5:0]  EM_rs1Id_i,
         input  wire [5:0]  EM_rs2Id_i,
         input  wire [11:0] EM_csrId_i,
-        input  wire [31:0] EM_rs2_i,
+        input  wire [63:0] EM_rs2_i,
         input  wire [2:0]  EM_funct3_i,
         input  wire [6:0]  EM_funct7_i,
-        input  wire [31:0] EM_Eresult_i,
+        input  wire [63:0] EM_Eresult_i,
         input  wire [31:0] EM_addr_i,
-        input  wire [31:0] EM_Mdata_i,
+        input  wire [63:0] EM_Mdata_i,
         input  wire [31:0] EM_CSRdata_i,
         input  wire        EM_wbEnable_i,
         // Writeback Unit Interface
@@ -48,7 +48,7 @@ module MemoryUnit (
         output reg  [31:0] MW_instr_o,
         output reg         MW_nop_o,
         output reg  [5:0]  MW_rdId_o,
-        output reg  [31:0] MW_wbData_o,
+        output reg  [63:0] MW_wbData_o,
         output reg         MW_wbEnable_o
 );
 
@@ -80,19 +80,20 @@ end
 /*----------------------STORE---------------------*/
 wire M_isB = (EM_funct3_i[1:0] == 2'b00);
 wire M_isH = (EM_funct3_i[1:0] == 2'b01);
+wire M_isW = (EM_funct3_i[1:0] == 2'b10);
 
-reg [31:0] M_storeData;
+reg [63:0] M_storeData;
 always @(*) begin
         if (M_isAMO) begin
-                M_storeData = EM_Eresult_i;
+                M_storeData[31:0] = EM_Eresult_i[31:0];
         end
         // Store byte only
         else if (EM_addr_i[0]) begin
-                M_storeData = {4{EM_rs2_i[7:0]}};
+                M_storeData = {8{EM_rs2_i[7:0]}};
         end
         // Store half for [31:16] or [15:0] or store byte for [23:16]
         else if (EM_addr_i[1]) begin
-                M_storeData = {2{EM_rs2_i[15:0]}};
+                M_storeData = {4{EM_rs2_i[15:0]}};
         end
         // Store word or store byte for [7:0]
         else begin
@@ -100,24 +101,26 @@ always @(*) begin
         end
 end
 
-reg [3:0] M_storeMask;
+reg [4:0] M_storeMask;
 always @(*) begin
         if (M_isB) begin
                 if (EM_addr_i[1:0] == 2'b11)
-                        M_storeMask = 4'b1000;
+                        M_storeMask = 5'b01000;
                 else if (EM_addr_i[1:0] == 2'b10)
-                        M_storeMask = 4'b0100;
+                        M_storeMask = 5'b00100;
                 else if (EM_addr_i[1:0] == 2'b01)
-                        M_storeMask = 4'b0010;
+                        M_storeMask = 5'b00010;
                 else
-                        M_storeMask = 4'b0001;
+                        M_storeMask = 5'b00001;
         end else if (M_isH) begin
                 if (EM_addr_i[1])
-                        M_storeMask = 4'b1100;
+                        M_storeMask = 5'b01100;
                 else
-                        M_storeMask = 4'b0011;
+                        M_storeMask = 5'b00011;
+        end else if (M_isW) begin
+                M_storeMask = 5'b01111;
         end else begin
-                M_storeMask = 4'b1111;
+                M_storeMask = 5'b11111;
         end
 end
 
@@ -140,11 +143,11 @@ wire M_isRAM = !M_isIO;
 
 assign IO_memAddr_o  = EM_addr_i;
 assign IO_memWr_o    = (M_storeEnable) && M_isIO;
-assign IO_memWData_o = EM_rs2_i;
+assign IO_memWData_o = EM_rs2_i[31:0];
 
 assign DMemWAddr_o = EM_addr_i;
 assign DMemWData_o = M_storeData;
-assign DMemWMask_o = {4{(M_storeEnable) & M_isRAM}} & M_storeMask;
+assign DMemWMask_o = {5{(M_storeEnable) & M_isRAM}} & M_storeMask;
 
 /*----------------------LOAD----------------------*/
 wire [15:0] M_memHalf = EM_addr_i[1] ? EM_Mdata_i[31:16] : EM_Mdata_i[15:0];
@@ -154,12 +157,14 @@ wire [7:0]  M_memByte = EM_addr_i[0] ? M_memHalf[15:8]  : M_memHalf[7:0];
 // Based on funct3[2]: 0->sign expand, 1->unsigned
 wire M_loadSign = !EM_funct3_i[2] & (M_isB ? M_memByte[7] : M_memHalf[15]);
 
-reg [31:0] M_Mdata;
+reg [63:0] M_Mdata;
 always @(*) begin
         if(M_isB)
-                M_Mdata = {{24{M_loadSign}}, M_memByte};
+                M_Mdata = {32'hFFFFFFFF, {24{M_loadSign}}, M_memByte};
         else if(M_isH)
-                M_Mdata = {{16{M_loadSign}}, M_memHalf};
+                M_Mdata = {32'hFFFFFFFF, {16{M_loadSign}}, M_memHalf};
+        else if(M_isW)
+                M_Mdata = {32'hFFFFFFFF, EM_Mdata_i[31:0]};
         else
                 M_Mdata = EM_Mdata_i;
 end
@@ -167,17 +172,17 @@ end
 
 /*-----------------------CSR----------------------*/
 assign csrWAddr_o   = EM_isCSR_i ? EM_csrId_i : 12'bZ;
-assign csrWData_o   = EM_isCSR_i ? EM_Eresult_i : 32'bZ;
+assign csrWData_o   = EM_isCSR_i ? EM_Eresult_i[31:0] : 32'bZ;
 assign csrWEnable_o = EM_isCSR_i;
 
 // Step up instruction counter if not a NOP
 assign csrInstStep_o  = ~MW_nop_o;
 
 /*------------------------------------------------*/
-wire [31:0] M_wbData =
-        M_isSC                     ? {31'b0, M_scWriteable} :
-        (EM_isLoad_i | EM_isAMO_i) ? (M_isIO ? IO_memRData_i : M_Mdata) :
-        EM_isCSR_i                 ? EM_CSRdata_i : EM_Eresult_i;
+wire [63:0] M_wbData =
+        M_isSC                     ? {63'h7FFFFFFF80000000, M_scWriteable} :
+        (EM_isLoad_i | EM_isAMO_i) ? (M_isIO ? {32'hFFFFFFFF, IO_memRData_i} : M_Mdata) :
+        EM_isCSR_i                 ? {32'hFFFFFFFF, EM_CSRdata_i} : EM_Eresult_i;
 
 always @(posedge clk_i) begin
         MW_PC_o <= EM_PC_i;

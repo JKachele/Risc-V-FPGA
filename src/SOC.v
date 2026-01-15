@@ -24,10 +24,10 @@ wire reset;
 wire [31:0] IMemAddr;
 wire [31:0] IMemData;
 wire [31:0] DMemRAddr;
-wire [31:0] DMemRData;
+wire [63:0] DMemRData;
 wire [31:0] DMemWAddr;
-wire [31:0] DMemWData;
-wire [3:0]  DMemWMask;
+wire [63:0] DMemWData;
+wire [4:0]  DMemWMask;
 
 // IO
 wire [31:0] IO_memAddr;
@@ -74,7 +74,11 @@ IO io(
 );
 
 Clockworks #(
+`ifdef BENCH
+        .SLOW(0)
+`else
         .SLOW(2)        // Slow clock by 2^SLOW
+`endif
 )CW(
         .CLK(CLK),
         .RESET(RESET),

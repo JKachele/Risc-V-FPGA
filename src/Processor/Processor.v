@@ -13,10 +13,10 @@ module Processor(
         output wire [31:0] IMemAddr_o,
         input  wire [31:0] IMemData_i,
         output wire [31:0] DMemRAddr_o,
-        input  wire [31:0] DMemRData_i,
+        input  wire [63:0] DMemRData_i,
         output wire [31:0] DMemWAddr_o,
-        output wire [31:0] DMemWData_o,
-        output wire [3:0]  DMemWMask_o,
+        output wire [63:0] DMemWData_o,
+        output wire [4:0]  DMemWMask_o,
         // Memory Mapped IO
         output wire [31:0] IO_memAddr_o,
         input  wire [31:0] IO_memRData_i,
@@ -27,11 +27,11 @@ module Processor(
 /******************************************************************************
  ----------------------------------Registers-----------------------------------
  ******************************************************************************/
-wire [31:0] rs1Data;
-wire [31:0] rs2Data;
-wire [31:0] rs3Data;
+wire [63:0] rs1Data;
+wire [63:0] rs2Data;
+wire [63:0] rs3Data;
 wire [5:0]  rdId;
-wire [31:0] rdData;
+wire [63:0] rdData;
 wire [5:0]  rs1Id;
 wire [5:0]  rs2Id;
 wire [5:0]  rs3Id;
@@ -300,21 +300,23 @@ wire [5:0]  EM_rdId;
 wire [5:0]  EM_rs1Id;
 wire [5:0]  EM_rs2Id;
 wire [11:0] EM_csrId;
-wire [31:0] EM_rs2;
+wire [63:0] EM_rs2;
 wire [2:0]  EM_funct3;
 wire [6:0]  EM_funct7;
 
-wire [31:0] EM_Eresult;
+wire [63:0] EM_Eresult;
 wire [31:0] EM_addr;
-wire [31:0] EM_Mdata;
+wire [63:0] EM_Mdata;
 wire [31:0] EM_CSRdata;
 wire        EM_wbEnable;
 
+/*verilator public_flat_rw_on*/
 wire        E_correctPC;
 wire        E_takeBranch;
 wire        EF_correctPC;
 wire [31:0] EF_PCcorrection;
 wire        aluBusy;
+/*verilator public_off*/
 
 ExecuteUnit execute(
         .clk_i(clk_i),
@@ -410,7 +412,7 @@ wire [31:0] MW_instr;
 wire        MW_nop;
 
 wire [5:0]  MW_rdId;
-wire [31:0] MW_wbData;
+wire [63:0] MW_wbData;
 wire        MW_wbEnable;
 
 MemoryUnit memory(
