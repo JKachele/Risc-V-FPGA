@@ -11,7 +11,7 @@ module FCVT (
         input  wire signed [9:0]  rs1Exp_i,
         input  wire        [23:0] rs1Sig_i,
         input  wire        [5:0]  rs1Class_i,
-        input  wire        [1:0]  instr_i,      // {fp->int, unsigned}
+        input  wire        [1:0]  instr_i,      // {float->int, unsigned}
         input  wire        [2:0]  rm_i,         // Rounding Mode
 
         output wire        [31:0] fcvtOut_o

@@ -40,7 +40,7 @@ BUILD_DIR := build
 # SRC += $(wildcard firmware/OS/*/*/*.c) $(wildcard firmware/OS/*/*/*.S) 
 # OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
 # LDSCRIPT = firmware/OS/kernel.ld
-SRC := firmware/Tests/startPipeline.S firmware/Tests/Test.S
+SRC := firmware/Tests/startPipeline.S firmware/Tests/raystones.c
 SRC += $(wildcard firmware/libs/*.S) $(wildcard firmware/libs/*.c) 
 OBJ := $(SRC:%=$(BUILD_DIR)/%.o)
 LDSCRIPT = firmware/Tests/ram.ld

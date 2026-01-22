@@ -104,39 +104,52 @@ public:
                 return TESTB<VSOC>::done();
         }
 
+        void printFReg(const char *name, QData reg) {
+                double d = *(double*)&reg;
+                float  f = *(float*)&reg;
+                printf("%s: %lx (%0.16f) (%f)\n", name, reg, d, f);
+        }
+
+        void printIReg(const char *name, IData reg) {
+                printf("%s: %x (%d)\n", name, reg, reg);
+        }
+
         void printFRegisters(void) {
-                printf("F0 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F0);
-                printf("F1 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F1);
-                printf("F2 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F2);
-                printf("F3 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F3);
-                printf("F4 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F4);
-                printf("F5 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F5);
-                printf("F6 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F6);
-                printf("F7 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F7);
-                printf("F8 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F8);
-                printf("F9 : %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F9);
-                printf("F10: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F10);
-                printf("F11: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F11);
-                printf("F12: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F12);
-                printf("F13: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F13);
-                printf("F14: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F14);
-                printf("F15: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F15);
-                printf("F16: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F16);
-                printf("F17: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F17);
-                printf("F18: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F18);
-                printf("F19: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F19);
-                printf("F20: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F20);
-                printf("F21: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F21);
-                printf("F22: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F22);
-                printf("F23: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F23);
-                printf("F24: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F24);
-                printf("F25: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F25);
-                printf("F26: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F26);
-                printf("F27: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F27);
-                printf("F28: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F28);
-                printf("F29: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F29);
-                printf("F30: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F30);
-                printf("F31: %lx\n", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F31);
+                printFReg("ft0",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F0);
+                printFReg("ft1",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F1);
+                printFReg("ft2",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F2);
+                printFReg("ft3",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F3);
+                printFReg("ft4",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F4);
+                printFReg("ft5",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F5);
+                printFReg("ft6",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F6);
+                printFReg("ft7",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F7);
+                // printFReg("fs0",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F8);
+                // printFReg("fs1",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F9);
+                // printFReg("fa0",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F10);
+                // printFReg("fa1",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F11);
+                // printFReg("fa2",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F12);
+                // printFReg("fa3",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F13);
+                // printFReg("fa4",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F14);
+                // printFReg("fa5",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F15);
+                // printFReg("fa6",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F16);
+                // printFReg("fa7",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F17);
+                // printFReg("fs2",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F18);
+                // printFReg("fs3",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F19);
+                // printFReg("fs4",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F20);
+                // printFReg("fs5",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F21);
+                // printFReg("fs6",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F22);
+                // printFReg("fs7",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F23);
+                // printFReg("fs8",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F24);
+                // printFReg("fs9",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F25);
+                // printFReg("fs10", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F26);
+                // printFReg("fs11", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F27);
+                // printFReg("ft8",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F28);
+                // printFReg("ft9",  m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F29);
+                // printFReg("ft10", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F30);
+                // printFReg("ft11", m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_F31);
+
+                printIReg("x6" , m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_6);
+                printIReg("x7" , m_core->rootp->SOC__DOT__CPU__DOT__registers__DOT__reg_7);
         }
 
         void printStatusReport(void) {
@@ -162,7 +175,7 @@ public:
                 printf("FPU:%3.3f\%% | ",               nbFPU*100.0/instret);
                 printf("AMO:%3.3f\%%",                  nbAMO*100.0/instret);
                 printf(")\n");
-                printFRegisters();
+                // printFRegisters();
         }
 
 };

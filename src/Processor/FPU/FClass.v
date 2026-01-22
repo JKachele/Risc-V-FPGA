@@ -25,43 +25,48 @@ module FClass #(
 `endif
 
 wire regExpZ   = (reg_i[FLen-2:SigLen] == 0);
-wire regExp255 = (reg_i[FLen-2:SigLen] == 255);
+wire regExpMax = &reg_i[FLen-2:SigLen];
 wire regSigniZ = (reg_i[SigLen-1:0]  == 0);
 
 assign class_o = {
-         regExp255 &  reg_i[SigLen-1],                  // 5: quiet NaN
-         regExp255 & !reg_i[SigLen-1] & (|reg_i[SigLen-2:0]), // 4: sig NaN
-         regExp255 &  regSigniZ,                  // 3: infinity
-        !regExpZ   & !regExp255,                  // 2: normal
+         regExpMax &  reg_i[SigLen-1],                  // 5: quiet NaN
+         regExpMax & !reg_i[SigLen-1] & (|reg_i[SigLen-2:0]), // 4: sig NaN
+         regExpMax &  regSigniZ,                  // 3: infinity
+        !regExpZ   & !regExpMax,                  // 2: normal
          regExpZ   & !regSigniZ,                  // 1: subnormal
          regExpZ   &  regSigniZ                   // 0: 0
         };
 
 assign fullClass_o = {
-        regExp255   &  reg_i[SigLen-1],                 // 9: quiet NaN
-        regExp255   & !reg_i[SigLen-1] & (|reg_i[SigLen-2:0]),// 8: sig NaN
-        !reg_i[FLen-1]  &  regExp255 &  regSigniZ,    // 7: +infinity
-        !reg_i[FLen-1]  & !regExpZ   & !regExp255,    // 6: +normal
+        regExpMax   &  reg_i[SigLen-1],                 // 9: quiet NaN
+        regExpMax   & !reg_i[SigLen-1] & (|reg_i[SigLen-2:0]),// 8: sig NaN
+        !reg_i[FLen-1]  &  regExpMax &  regSigniZ,    // 7: +infinity
+        !reg_i[FLen-1]  & !regExpZ   & !regExpMax,    // 6: +normal
         !reg_i[FLen-1]  &  regExpZ   & !regSigniZ,    // 5: +subnormal
         !reg_i[FLen-1]  &  regExpZ   &  regSigniZ,    // 4: +0
         reg_i[FLen-1]   &  regExpZ   &  regSigniZ,    // 3: -0
         reg_i[FLen-1]   &  regExpZ   & !regSigniZ,    // 2: -subnormal
-        reg_i[FLen-1]   & !regExpZ   & !regExp255,    // 1: -normal
-        reg_i[FLen-1]   &  regExp255 &  regSigniZ     // 0: -infinity
+        reg_i[FLen-1]   & !regExpZ   & !regExpMax,    // 1: -normal
+        reg_i[FLen-1]   &  regExpMax &  regSigniZ     // 0: -infinity
         };
 
-// First bit set = 31 - clz
-wire [4:0] sigClz;
-CLZ #(.W_IN(32))clz({9'b0, reg_i[22:0]}, sigClz);
-// Shift so leading 1 is at bit 23: shamt = 23 - first_bit_set = 23 - (31 - clz) = clz - 8
-wire [4:0] lshamt = sigClz - 8;
+// First bit set = 63 - clz
+wire [5:0] sigClz;
+CLZ #(.W_IN(64))clz({{64-SigLen{1'b0}}, reg_i[SigLen-1:0]}, sigClz);
+// Shift so leading 1 is at bit SigLen:
+// shamt = SigLen - first_bit_set = SigLen - (63 - clz) = clz - (63 - SigLen)
+localparam shamtConst = 63 - SigLen;
+wire [5:0] lshamt = sigClz - shamtConst;
+
+localparam BIAS = ((1 << (ExpLen - 1)) - 1);
+localparam EMIN = 1 - BIAS;
 
 // Decode register into exponent and significand
 always @(*) begin
-        regExp_o = reg_i[30:23] - 127;
-        regSig_o = {1'b1, reg_i[22:0]};
+        regExp_o = reg_i[FLen-2:SigLen] - BIAS;
+        regSig_o = {1'b1, reg_i[SigLen-1:0]};
         if (class_o[CLASS_BIT_SUB]) begin
-                regExp_o = -126 - lshamt;
+                regExp_o = EMIN - lshamt;
                 regSig_o = regSig_o << lshamt;
         end
 end

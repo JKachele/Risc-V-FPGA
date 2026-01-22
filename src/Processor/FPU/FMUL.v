@@ -6,21 +6,23 @@
  *Created-------Thursday Dec 11, 2025 18:22:47 UTC
  ************************************************/
 
-module FMUL (
-        input  wire        [31:0] rs1_i,
-        input  wire signed [9:0]  rs1Exp_i,
-        input  wire        [23:0] rs1Sig_i,
-        input  wire        [5:0]  rs1Class_i,
-        input  wire        [31:0] rs2_i,
-        input  wire signed [9:0]  rs2Exp_i,
-        input  wire        [23:0] rs2Sig_i,
-        input  wire        [5:0]  rs2Class_i,
-        input  wire        [2:0]  rm_i,
+module FMUL #(
+        parameter FLEN = 32
+)(
+        input  wire        [FLEN-1:0]   rs1_i,
+        input  wire signed [NEXP+1:0]   rs1Exp_i,
+        input  wire        [NSIG:0]     rs1Sig_i,
+        input  wire        [5:0]        rs1Class_i,
+        input  wire        [FLEN-1:0]   rs2_i,
+        input  wire signed [NEXP+1:0]   rs2Exp_i,
+        input  wire        [NSIG:0]     rs2Sig_i,
+        input  wire        [5:0]        rs2Class_i,
+        input  wire        [2:0]        rm_i,
 
-        output wire        [31:0] fmulOut_o,
-        output wire signed [10:0] exp_o,
-        output wire        [47:0] sig_o,
-        output wire        [5:0]  class_o
+        output wire        [FLEN-1:0]   fmulOut_o,
+        output wire signed [NEXP+2:0]   exp_o,
+        output wire        [NFULLSIG:0] sig_o,
+        output wire        [5:0]        class_o
 );
 `ifdef BENCH
         `include "src/Processor/FPU/FClassFlags.vh"
@@ -28,31 +30,39 @@ module FMUL (
         `include "../src/Processor/FPU/FClassFlags.vh"
 `endif
 
-reg [31:0] out;
+localparam NEXP      = (FLEN == 32) ? 8 : 11;
+localparam NSIG      = (FLEN == 32) ? 23 : 52;
+localparam NFULLSIG  = (2 * NSIG) + 1;
+localparam EMAX = ((1 << (NEXP - 1)) - 1);
+localparam BIAS = EMAX;
+localparam EMIN = 1 - EMAX;
+
+reg [FLEN-1:0] out;
 reg [5:0]  outClass;
 assign fmulOut_o = out;
 assign exp_o = outExp;
 assign sig_o = outSigNorm;
 assign class_o = outClass;
 
-wire        [47:0] sigProd = rs1Sig_i * rs2Sig_i;
-wire signed [10:0]  expSum = rs1Exp_i + rs2Exp_i;
+wire        [NFULLSIG:0] sigProd = rs1Sig_i * rs2Sig_i;
+wire signed [NEXP+2:0]   expSum = rs1Exp_i + rs2Exp_i;
 
-wire               outSign = rs1_i[31] ^ rs2_i[31];
-reg         [47:0] outSigNorm;
-reg         [47:0] outSig;
-reg  signed [10:0] outExp;
-reg         [10:0] outExpBiased;
+wire                     outSign = rs1_i[FLEN-1] ^ rs2_i[FLEN-1];
+reg         [NFULLSIG:0] outSigNorm;
+reg         [NFULLSIG:0] outSig;
+reg  signed [NEXP+2:0]   outExp;
+reg         [NEXP+2:0]   outExpBiased;
 
-wire        [23:0] outSigRound;
-wire        [10:0] outExpRound;
-FRound #(.nInt(48),.nExp(9)) round(outSign, outSig, outExp, rm_i, outSigRound, outExpRound);
+wire        [NSIG:0] outSigRound;
+wire        [NEXP+2:0] outExpRound;
+FRound #(.nInt(NFULLSIG+1), .nExp(NEXP+1), .nSig(NSIG)
+)round(outSign, outSig, outExp, rm_i, outSigRound, outExpRound);
 
 always @(*) begin
-        outSigNorm = 48'b0;
-        outSig = 48'b0;
-        outExp = 11'b0;
-        outExpBiased = 11'b0;
+        outSigNorm = 0;
+        outSig = 0;
+        outExp = 0;
+        outExpBiased = 0;
         /************************ Special Cases ************************/
         // Propigate NaNs
         if (rs1Class_i[CLASS_BIT_QNAN] || rs2Class_i[CLASS_BIT_QNAN]) begin
@@ -67,55 +77,55 @@ always @(*) begin
         else if (rs1Class_i[CLASS_BIT_INF] || rs2Class_i[CLASS_BIT_INF]) begin
                 // Infinity x Zero = qNaN
                 if (rs1Class_i[CLASS_BIT_ZERO] || rs2Class_i[CLASS_BIT_ZERO]) begin
-                        out = {outSign, {8{1'b1}}, 1'b1, 22'b0};
+                        out = {outSign, {NEXP{1'b1}}, 1'b1, {NSIG-1{1'b0}}};
                         outClass = CLASS_QNAN;
                 end
                 // Infinity x (infinity, normal, subnormal) = infinity
                 else begin
-                        out = {outSign, {8{1'b1}}, 23'b0};
+                        out = {outSign, {NEXP{1'b1}}, {NSIG{1'b0}}};
                         outClass = CLASS_INF;
                 end
         end
         // Zero and Subnormals
         else if (rs1Class_i[CLASS_BIT_ZERO] || rs2Class_i[CLASS_BIT_ZERO] ||
                  (rs1Class_i[CLASS_BIT_SUB] && rs2Class_i[CLASS_BIT_SUB])) begin
-                out = {outSign, 31'b0};
+                out = {outSign, {FLEN-1{1'b0}}};
                 outClass = CLASS_ZERO;
         end
 
         /************************ Multiply ************************/
         else begin
                 // Normalize the significand product
-                if (sigProd[47]) begin
+                if (sigProd[NFULLSIG]) begin
                         outSigNorm = sigProd;
                         outExp = expSum + 1;
                 end else begin
-                        outSigNorm = {sigProd[46:0], 1'b0};
+                        outSigNorm = {sigProd[NFULLSIG-1:0], 1'b0};
                         outExp = expSum;
                 end
 
-                // Pack output into 32 bit FP
+                // Pack output into 32/64 bit FP
                 // Underflow
-                if (outExp < -149) begin // Too small for subnormals
-                        out = {outSign, 31'b0};
+                if (outExp < (EMIN - NSIG)) begin // Too small for subnormals
+                        out = {outSign, {FLEN-1{1'b0}}};
                         outClass = CLASS_ZERO;
                 end
                 // Subnormal
-                else if (outExp < -126) begin
-                        outSig = outSigNorm >> (-126 - outExp);
-                        out = {outSign, 8'b0, outSigRound[22:0]};
+                else if (outExp < EMIN) begin
+                        outSig = outSigNorm >> (EMIN - outExp);
+                        out = {outSign, {NEXP{1'b0}}, outSigRound[NSIG-1:0]};
                         outClass = CLASS_SUB;
                 end
                 // Overflow
-                else if (outExp > 127) begin
-                        out = {outSign, {8{1'b1}}, 23'b0};
+                else if (outExp > EMAX) begin
+                        out = {outSign, {NEXP{1'b1}}, {NSIG{1'b0}}};
                         outClass = CLASS_INF;
                 end
                 // Normal
                 else begin
                         outSig = outSigNorm;
-                        outExpBiased = outExpRound + 127;
-                        out = {outSign, outExpBiased[7:0], outSigRound[22:0]};
+                        outExpBiased = outExpRound + BIAS;
+                        out = {outSign, outExpBiased[NEXP-1:0], outSigRound[NSIG-1:0]};
                         outClass = CLASS_NORM;
                 end
         end

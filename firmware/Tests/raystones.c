@@ -426,9 +426,13 @@ vec3 cast_ray(
                         specular_light_intensity += powf(abc,def)*lights[i].intensity;
                 }
         }
+        // float f = diffuse_light_intensity * material.albedo.x;
+        // printf("\t%f: ", f);
+        // printf("(%f, %f)\n", diffuse_light_intensity, material.albedo.x);
         vec3 result = vec3_scale(
                         diffuse_light_intensity * material.albedo.x, material.diffuse_color
                         );
+        // printf("(%f, %f, %f)\n", result.x, result.y, result.z);
         result = vec3_add(
                         result, vec3_scale(specular_light_intensity * material.albedo.y,
                                 make_vec3(1,1,1))
@@ -438,7 +442,7 @@ vec3 cast_ray(
         return result;
 }
 
-static inline void render_pixel(
+static void render_pixel(
                 int i, int j, Sphere* spheres, int nb_spheres, Light* lights, int nb_lights
                 ) {
         const float fov  = M_PI/3.;
@@ -446,6 +450,7 @@ static inline void render_pixel(
         float dir_x =  (i + 0.5) - graphics_width/2.;
         float dir_y = -(j + 0.5) + graphics_height/2.; // this flips the image.
         float dir_z = -graphics_height/(2.*tan(fov/2.));
+        // printf("%d, %d:\n", i, j);
         vec3 C = cast_ray(
                         make_vec3(0,0,0), vec3_normalize(make_vec3(dir_x, dir_y, dir_z)),
                         spheres, nb_spheres, lights, nb_lights, 0
@@ -457,6 +462,12 @@ static inline void render_pixel(
 void render(Sphere* spheres, int nb_spheres, Light* lights, int nb_lights) {
         stats_begin_frame();
 #ifdef graphics_double_lines  
+        // for (int j = 0; j<1; j+=2) { 
+        //         for (int i = 25; i<28; i++) {
+        //                 render_pixel(i,j  ,spheres,nb_spheres,lights,nb_lights);
+        //                 render_pixel(i,j+1,spheres,nb_spheres,lights,nb_lights);	  
+        //         }
+        // }
         for (int j = 0; j<graphics_height; j+=2) { 
                 for (int i = 0; i<graphics_width; i++) {
                         render_pixel(i,j  ,spheres,nb_spheres,lights,nb_lights);
@@ -513,10 +524,10 @@ int main() {
         printf("Running without graphic output (for accurate measurement)...\n");
         render(spheres, nb_spheres, lights, nb_lights);
 
-        // bench_run = 0;
-        // graphics_width = 120;
-        // graphics_height = 60;
-        // render(spheres, nb_spheres, lights, nb_lights);
+        bench_run = 0;
+        graphics_width = 40;
+        graphics_height = 20;
+        render(spheres, nb_spheres, lights, nb_lights);
         graphics_terminate();
 
         return 0;
